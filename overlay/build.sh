@@ -14,9 +14,11 @@ lipo -create "$APP/Contents/MacOS/AlptuguideOverlay.arm64" "$APP/Contents/MacOS/
      -output "$APP/Contents/MacOS/AlptuguideOverlay"
 rm "$APP/Contents/MacOS/AlptuguideOverlay.arm64" "$APP/Contents/MacOS/AlptuguideOverlay.x86_64"
 
-# Bundle 1:1 verified safe-zone guide PNGs into Resources
+# Bundle 1:1 verified safe-zone guide PNGs and official Alptuguide logo/icon into Resources
 if [ -d "../assets" ]; then
     cp -f ../assets/*_guides.png "$APP/Contents/Resources/" 2>/dev/null || true
+    cp -f ../assets/imza.svg "$APP/Contents/Resources/" 2>/dev/null || true
+    cp -f ../assets/AppIcon.icns "$APP/Contents/Resources/" 2>/dev/null || true
 fi
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
@@ -28,6 +30,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
     <key>CFBundleName</key><string>Alptuguide</string>
     <key>CFBundleDisplayName</key><string>Alptuguide</string>
     <key>CFBundleExecutable</key><string>AlptuguideOverlay</string>
+    <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>3.0.0</string>
     <key>CFBundleVersion</key><string>300</string>

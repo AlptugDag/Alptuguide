@@ -1,8 +1,24 @@
-# Alptuguide™ Studio v3.0
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/imza.svg">
+    <img src="assets/alptuguide_logo.png" width="150" alt="Alptuguide Logo">
+  </picture>
+</p>
 
-**Alptuguide™ Studio**, dikey video kurgularında (**Instagram Reels**, **TikTok**, **YouTube Shorts** ve **3'lü Ortak Kesişim**) birebir doğrulanmış güvenli alan (safe-zone) kılavuzlarını ve gerçek zamanlı sosyal medya arayüz simülasyonunu **sıfır gecikme (zero-lag)** ile sunan çift mimarili (**Adobe CEP Eklentisi** + **Yerel macOS Uygulaması**) profesyonel bir kurgu aracıdır.
+<h1 align="center">Alptuguide™ Studio v3.0</h1>
 
-Geliştirici: **Alptuğ Dağ** ([@alptugdag](https://github.com/AlptugDag))
+<p align="center">
+  <strong>Alptuguide™ Studio</strong>, dikey video kurgularında (<strong>Instagram Reels</strong>, <strong>TikTok</strong>, <strong>YouTube Shorts</strong> ve <strong>3'lü Ortak Kesişim</strong>) birebir doğrulanmış güvenli alan (safe-zone) kılavuzlarını ve gerçek zamanlı sosyal medya arayüz simülasyonunu <strong>sıfır gecikme (zero-lag)</strong> ile sunan çift mimarili (<strong>Adobe CEP Eklentisi</strong> + <strong>Yerel macOS Uygulaması</strong>) profesyonel bir kurgu aracıdır.
+  <br><br>
+  <img src="https://img.shields.io/badge/macOS-13%2B-black" alt="macOS 13+">
+  <img src="https://img.shields.io/badge/Apple%20Silicon%20%26%20Intel-Universal-blue" alt="Universal Binary">
+  <img src="https://img.shields.io/badge/Adobe%20CEP-Premiere%20Pro%20%26%20After%20Effects-7c3aed" alt="Adobe CEP">
+  <img src="https://img.shields.io/badge/version-3.0.0-10b981" alt="v3.0.0">
+</p>
+
+<p align="center">
+  Geliştirici: <strong>Alptuğ Dağ</strong> (<a href="https://github.com/AlptugDag">@alptugdag</a>)
+</p>
 
 ---
 

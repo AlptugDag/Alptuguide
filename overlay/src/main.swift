@@ -177,6 +177,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func buildMenu() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        if let sigURL = Bundle.main.resourceURL?.appendingPathComponent("imza.svg"),
+           let sigImg = NSImage(contentsOf: sigURL) {
+            sigImg.size = NSSize(width: 18, height: 18)
+            sigImg.isTemplate = true
+            statusItem.button?.image = sigImg
+            statusItem.button?.imagePosition = .imageLeading
+        }
         statusItem.button?.title = "Alptuguide"
         statusItem.button?.toolTip = "Alptuguide™ 1:1 Safe-Zone & Overlay Studio"
 

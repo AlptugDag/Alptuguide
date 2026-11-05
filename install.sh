@@ -1,5 +1,5 @@
 #!/bin/bash
-# Alptuguide™ Liquid Glass Studio v3.1 — One-Command macOS Installer
+# Alptuguide™ Liquid Glass Studio v3.2 — One-Command macOS Installer
 # Installs:
 #   1. Adobe Premiere Pro & After Effects CEP Extension (2020–2030+ future-proof)
 #   2. DaVinci Resolve Integration (Workspace > Scripts > Alptuguide Studio & Workflow Integration)
@@ -69,7 +69,7 @@ fi
 
 echo ""
 echo "=================================================================="
-echo " Alptuguide™ Liquid Glass Studio v3.1 başarıyla kuruldu!"
+echo " Alptuguide™ Liquid Glass Studio v3.2 başarıyla kuruldu!"
 echo " - Adobe Premiere & AE : Window > Extensions > Alptuguide Studio"
 echo " - DaVinci Resolve     : Workspace > Scripts > Alptuguide Studio"
 echo " - macOS Uygulaması    : /Applications/Alptuguide.app"

@@ -69,11 +69,24 @@ def get_sequence_details():
     is916 = abs(aspect - (9 / 16)) < 0.02
     is169 = abs(aspect - (16 / 9)) < 0.02
     is_sq = abs(aspect - 1.0) < 0.02
+    fps = 30.0
+    try:
+        fps_val = float(timeline.GetSetting("timelineFrameRate") or 30.0)
+        if fps_val > 0:
+            fps = fps_val
+    except Exception:
+        pass
+    start_f = int(timeline.GetStartFrame() or 0)
+    end_f = int(timeline.GetEndFrame() or 0)
+    dur = max(0.0, (end_f - start_f) / fps) if (end_f > start_f and fps > 0) else 0.0
+
     return json.dumps({
         "ok": True,
         "name": timeline.GetName() or "DaVinci Timeline",
         "width": w,
         "height": h,
+        "fps": round(fps, 3),
+        "duration": round(dur, 2),
         "aspect": aspect,
         "is916": is916,
         "is169": is169,
@@ -245,6 +258,53 @@ def clean_all_preview_clips():
     return f"OK:{len(to_delete)}"
 
 
+
+def add_platform_markers(limit_seconds=180, platform_name="Platform"):
+    _, _, timeline, err, msg = _get_context()
+    if err:
+        return msg
+    fps = 30.0
+    try:
+        fps_val = float(timeline.GetSetting("timelineFrameRate") or 30.0)
+        if fps_val > 0:
+            fps = fps_val
+    except Exception:
+        pass
+
+    start_f = int(timeline.GetStartFrame() or 0)
+    end_f = int(timeline.GetEndFrame() or 0)
+    dur = max(0.0, (end_f - start_f) / fps) if (end_f > start_f and fps > 0) else 0.0
+
+    # Clean existing Alptuguide markers if any
+    try:
+        markers = timeline.GetMarkers() or {}
+        for f_idx, m_info in markers.items():
+            if "Alptuguide" in str(m_info.get("name", "")):
+                timeline.DeleteMarkerAtFrame(f_idx)
+    except Exception:
+        pass
+
+    count = 0
+    hook_f = start_f + int(3.0 * fps)
+    try:
+        ok = timeline.AddMarker(hook_f, "Cyan", "Alptuguide · HOOK", "İzleyici ilk 3 saniyede karar verir.", 1)
+        if ok:
+            count += 1
+    except Exception:
+        pass
+
+    try:
+        lim_sec = float(limit_seconds or 180)
+        if dur > lim_sec:
+            lim_f = start_f + int(lim_sec * fps)
+            ok = timeline.AddMarker(lim_f, "Red", f"Alptuguide · {platform_name} limiti", f"{platform_name} süresi aşılıyor.", 1)
+            if ok:
+                count += 1
+    except Exception:
+        pass
+
+    return f"OK:{count}"
+
 def main():
     if len(sys.argv) < 2:
         print(get_sequence_details())
@@ -267,6 +327,9 @@ def main():
         print(toggle_preview_visibility(arg1.lower() in ("true", "1", "yes")))
     elif cmd == "cleanAllPreviewClips":
         print(clean_all_preview_clips())
+    elif cmd == "addPlatformMarkers":
+        lim = float(arg1) if arg1 else 180
+        print(add_platform_markers(lim, arg2 or "Platform"))
     else:
         print(json.dumps({"ok": False, "error": f"Unknown command: {cmd}"}))
 

@@ -1,617 +1,337 @@
-// Host script for Alptuguide v3.1 (Zero-Stutter Dual Host: Adobe Premiere Pro & Adobe After Effects)
+// Alptuguide v3.2 host script — Adobe Premiere Pro & After Effects
+// Copyright (c) 2026 Alptuğ Dağ (@alptugdag). All rights reserved.
+//
+// Design rules:
+// - No frame capture, no QE exports, no polling targets: every call is a short, one-shot read/write.
+// - Premiere pushes "active sequence changed" events to the panel (CSXSEvent), so the panel never polls.
 
+var TICKS_PER_SECOND = 254016000000;
 var _cachedHostApp = null;
-var _qeEnabled = false;
+var _plugPlug = null;
+var GUIDE_LAYER_NAME = "Alptuguide Guide (render dışı)";
+var MARKER_TAG = "Alptuguide";
 
 function getHostApp() {
     if (_cachedHostApp) return _cachedHostApp;
     try {
-        if (typeof app !== "undefined" && app.appName) {
-            if (app.appName.indexOf("After Effects") >= 0) {
-                _cachedHostApp = "AEFT";
-                return _cachedHostApp;
-            }
-            if (app.appName.indexOf("Premiere") >= 0) {
-                _cachedHostApp = "PPRO";
-                return _cachedHostApp;
-            }
-        }
-        if (typeof app.project !== "undefined") {
-            if (typeof app.project.activeSequence !== "undefined") {
-                _cachedHostApp = "PPRO";
-                return _cachedHostApp;
-            }
-            if (typeof app.project.activeItem !== "undefined") {
-                _cachedHostApp = "AEFT";
-                return _cachedHostApp;
-            }
-        }
+        var n = String(app.appName || "");
+        if (n.indexOf("After Effects") >= 0) { _cachedHostApp = "AEFT"; return _cachedHostApp; }
+        if (n.indexOf("Premiere") >= 0) { _cachedHostApp = "PPRO"; return _cachedHostApp; }
+        if (app.project && typeof app.project.activeSequence !== "undefined") { _cachedHostApp = "PPRO"; return _cachedHostApp; }
+        if (app.project && typeof app.project.activeItem !== "undefined") { _cachedHostApp = "AEFT"; return _cachedHostApp; }
     } catch (e) {}
     return "PPRO";
 }
 
-function checkActiveSequence() {
-    try {
-        var host = getHostApp();
-        if (host === "AEFT") {
-            if (!app.project) return "NO_PROJECT";
-            var comp = app.project.activeItem;
-            if (comp && comp instanceof CompItem) return comp.name;
-            return "NO_COMP";
-        } else {
-            if (!app.project) return "NO_PROJECT";
-            if (!app.project.activeSequence) return "NO_SEQ";
-            return app.project.activeSequence.name;
-        }
-    } catch (e) {
-        return "ERR: " + e.toString();
-    }
+function _json(o) {
+    try { return JSON.stringify(o); } catch (e) { return '{"ok":false}'; }
 }
+
+function _activeComp() {
+    try {
+        var c = app.project ? app.project.activeItem : null;
+        return (c && c instanceof CompItem) ? c : null;
+    } catch (e) { return null; }
+}
+
+function _dispatch(type, data) {
+    try {
+        if (!_plugPlug) _plugPlug = new ExternalObject("lib:PlugPlugExternalObject");
+        var ev = new CSXSEvent();
+        ev.type = type;
+        ev.data = data || "";
+        ev.dispatch();
+    } catch (e) {}
+}
+
+// ---------------------------------------------------------------- Sequence info
 
 function getSequenceDetails() {
     try {
         var host = getHostApp();
+        var w, h, fps, dur, name;
         if (host === "AEFT") {
-            if (!app.project) {
-                return JSON.stringify({ ok: false, status: "NO_PROJECT", message: "Proje açık değil", host: "AEFT" });
-            }
-            var comp = app.project.activeItem;
-            if (!comp || !(comp instanceof CompItem)) {
-                return JSON.stringify({ ok: false, status: "NO_COMP", message: "Aktif Composition bulunamadı", host: "AEFT" });
-            }
-
-            var cw = Number(comp.width) || 1080;
-            var ch = Number(comp.height) || 1920;
-            var caspect = (ch > 0) ? (cw / ch) : (9 / 16);
-
-            var c_is916 = Math.abs(caspect - (9 / 16)) < 0.02;
-            var c_is169 = Math.abs(caspect - (16 / 9)) < 0.02;
-            var c_isSquare = Math.abs(caspect - 1.0) < 0.02;
-
-            var c_typeStr = "Özel Comp";
-            if (c_is916) {
-                c_typeStr = (cw >= 2160) ? "4K Dikey Comp (9:16)" : "Full HD Dikey Comp (9:16)";
-            } else if (c_is169) {
-                c_typeStr = (cw >= 3840) ? "4K Yatay Comp (16:9)" : "Full HD Yatay Comp (16:9)";
-            } else if (c_isSquare) {
-                c_typeStr = "Kare Comp (1:1)";
-            }
-
-            return JSON.stringify({
-                ok: true,
-                name: comp.name,
-                width: cw,
-                height: ch,
-                aspect: caspect,
-                is916: c_is916,
-                is169: c_is169,
-                isSquare: c_isSquare,
-                typeStr: c_typeStr,
-                host: "AEFT"
-            });
+            var comp = _activeComp();
+            if (!comp) return _json({ ok: false, host: host, message: "Aktif Composition yok" });
+            w = comp.width; h = comp.height; fps = comp.frameRate; dur = comp.duration; name = comp.name;
         } else {
-            if (!app.project) {
-                return JSON.stringify({ ok: false, status: "NO_PROJECT", message: "Proje açık değil", host: "PPRO" });
-            }
+            if (!app.project) return _json({ ok: false, host: host, message: "Proje açık değil" });
             var seq = app.project.activeSequence;
-            if (!seq) {
-                return JSON.stringify({ ok: false, status: "NO_SEQ", message: "Aktif sekans bulunamadı", host: "PPRO" });
-            }
-
-            var w = Number(seq.frameSizeHorizontal) || 1080;
-            var h = Number(seq.frameSizeVertical) || 1920;
-            var aspect = (h > 0) ? (w / h) : (9 / 16);
-
-            var is916 = Math.abs(aspect - (9 / 16)) < 0.02;
-            var is169 = Math.abs(aspect - (16 / 9)) < 0.02;
-            var isSquare = Math.abs(aspect - 1.0) < 0.02;
-
-            var typeStr = "Özel Boyut";
-            if (is916) {
-                typeStr = (w >= 2160) ? "4K Dikey (9:16)" : "Full HD Dikey (9:16)";
-            } else if (is169) {
-                typeStr = (w >= 3840) ? "4K Yatay (16:9)" : "Full HD Yatay (16:9)";
-            } else if (isSquare) {
-                typeStr = "Kare (1:1)";
-            }
-
-            return JSON.stringify({
-                ok: true,
-                name: seq.name,
-                width: w,
-                height: h,
-                aspect: aspect,
-                is916: is916,
-                is169: is169,
-                isSquare: isSquare,
-                typeStr: typeStr,
-                host: "PPRO"
-            });
+            if (!seq) return _json({ ok: false, host: host, message: "Aktif sekans yok" });
+            w = Number(seq.frameSizeHorizontal) || 1080;
+            h = Number(seq.frameSizeVertical) || 1920;
+            var tb = Number(seq.timebase);
+            fps = tb > 0 ? TICKS_PER_SECOND / tb : 0;
+            dur = 0;
+            try { dur = (Number(seq.end) - Number(seq.zeroPoint || 0)) / TICKS_PER_SECOND; } catch (dErr) {}
+            if (!(dur >= 0)) dur = 0;
+            name = seq.name;
         }
+        return _json({ ok: true, host: host, name: name, width: w, height: h, fps: Math.round(fps * 1000) / 1000, duration: dur });
     } catch (e) {
-        return JSON.stringify({ ok: false, status: "ERROR", message: e.toString() });
+        return _json({ ok: false, host: getHostApp(), message: e.toString() });
     }
 }
 
-function ensureClipScaleToFrame(track, fileName) {
-    try {
-        for (var c = 0; c < track.clips.numItems; c++) {
-            var clip = track.clips[c];
-            if (clip && (clip.name === fileName || (clip.projectItem && clip.projectItem.name === fileName))) {
-                if (typeof clip.setScaleToFrameSize === "function") {
-                    clip.setScaleToFrameSize();
-                }
-            }
-        }
-    } catch (e) {}
-}
-
-function togglePreviewVisibility(enable) {
-    try {
-        var host = getHostApp();
-        if (host === "AEFT") {
-            var comp = app.project ? app.project.activeItem : null;
-            if (!comp || !(comp instanceof CompItem)) return "NO_COMP";
-            var found = false;
-            for (var l = 1; l <= comp.numLayers; l++) {
-                var lyr = comp.layer(l);
-                if (lyr && lyr.name && lyr.name.indexOf("Alptuguide") >= 0) {
-                    lyr.enabled = enable;
-                    found = true;
-                }
-            }
-            return found ? "OK" : "NO_LAYER";
-        } else {
-            var proj = app.project;
-            if (!proj || !proj.activeSequence) return "NO_SEQ";
-            var seq = proj.activeSequence;
-
-            var foundP = false;
-            for (var t = 0; t < seq.videoTracks.numTracks; t++) {
-                var track = seq.videoTracks[t];
-                for (var c = 0; c < track.clips.numItems; c++) {
-                    var clip = track.clips[c];
-                    var cName = (clip.name || "").toLowerCase();
-                    var pName = (clip.projectItem && clip.projectItem.name) ? clip.projectItem.name.toLowerCase() : "";
-                    if (cName.indexOf("alptuguide") >= 0 || pName.indexOf("alptuguide") >= 0) {
-                        if (typeof clip.disabled !== "undefined") {
-                            clip.disabled = !enable;
-                            foundP = true;
-                        }
-                    }
-                }
-            }
-            return foundP ? "OK" : "NO_CLIP";
-        }
-    } catch (e) {
-        return "ERR: " + e.toString();
+// Premiere: push sequence changes to the panel instead of polling.
+function bindHostEvents() {
+    if (getHostApp() !== "PPRO") return "SKIP";
+    var names = ["onActiveSequenceChanged", "onActiveSequenceSettingsChanged", "onSequenceActivated"];
+    for (var i = 0; i < names.length; i++) {
+        try {
+            app.bind(names[i], function () { _dispatch("com.alptug.alptuguide.seqchanged", getSequenceDetails()); });
+        } catch (e) {}
     }
+    return "OK";
 }
 
-function cleanAllPreviewClips() {
-    try {
-        var host = getHostApp();
-        if (host === "AEFT") {
-            var comp = app.project ? app.project.activeItem : null;
-            if (!comp || !(comp instanceof CompItem)) return "NO_COMP";
-            var removedCount = 0;
-            for (var l = comp.numLayers; l >= 1; l--) {
-                var lyr = comp.layer(l);
-                if (lyr && lyr.name && lyr.name.indexOf("Alptuguide") >= 0) {
-                    lyr.remove();
-                    removedCount++;
-                }
-            }
-            return "OK:" + removedCount;
-        } else {
-            var proj = app.project;
-            if (!proj || !proj.activeSequence) return "NO_SEQ";
-            var seq = proj.activeSequence;
+// ---------------------------------------------------------------- AE native guide layer (never rendered)
 
-            var cleanedCount = 0;
-            for (var t = 0; t < seq.videoTracks.numTracks; t++) {
-                var track = seq.videoTracks[t];
-                for (var c = track.clips.numItems - 1; c >= 0; c--) {
-                    var clip = track.clips[c];
-                    var cName = (clip.name || "").toLowerCase();
-                    var pName = (clip.projectItem && clip.projectItem.name) ? clip.projectItem.name.toLowerCase() : "";
-                    if (cName.indexOf("alptuguide") >= 0 || pName.indexOf("alptuguide") >= 0) {
-                        try {
-                            if (typeof clip.remove === "function") {
-                                clip.remove(false, false);
-                            } else if (typeof clip.disabled !== "undefined") {
-                                clip.disabled = true;
-                            }
-                        } catch (remErr) {
-                            if (typeof clip.disabled !== "undefined") {
-                                clip.disabled = true;
-                            }
-                        }
-                        cleanedCount++;
-                    }
-                }
-            }
-            return "OK:" + cleanedCount;
-        }
-    } catch (e) {
-        return "ERR: " + e.toString();
+function _findGuideLayer(comp) {
+    for (var l = 1; l <= comp.numLayers; l++) {
+        var lyr = comp.layer(l);
+        if (lyr && lyr.name === GUIDE_LAYER_NAME) return lyr;
     }
+    return null;
 }
 
-function initOrUpdateProgramMonitor(filePath) {
+function _findFootage(fileObj) {
+    for (var i = 1; i <= app.project.numItems; i++) {
+        var itm = app.project.item(i);
+        if (itm instanceof FootageItem && itm.file && itm.file.fsName === fileObj.fsName) return itm;
+    }
+    return null;
+}
+
+// enable=true  -> create/update a Guide Layer (AE excludes guide layers from renders)
+// enable=false -> remove it
+function setCompGuide(filePath, enable) {
     try {
-        var host = getHostApp();
+        if (getHostApp() !== "AEFT") return "NOT_AE";
+        var comp = _activeComp();
+        if (!comp) return "Lütfen bir Composition açın.";
+        var lyr = _findGuideLayer(comp);
+        if (!enable) {
+            if (lyr) lyr.remove();
+            return "OK";
+        }
         var fileObj = new File(filePath);
-        if (!fileObj.exists) return "Dosya bulunamadı: " + filePath;
-
-        if (host === "AEFT") {
-            var comp = app.project ? app.project.activeItem : null;
-            if (!comp || !(comp instanceof CompItem)) return "Lütfen bir Composition açın.";
-
-            var targetFootage = null;
-            for (var i = 1; i <= app.project.numItems; i++) {
-                var itm = app.project.item(i);
-                if (itm instanceof FootageItem && itm.file && itm.file.fsName === fileObj.fsName) {
-                    targetFootage = itm;
-                    break;
-                }
-            }
-
-            if (targetFootage) {
-                targetFootage.reload();
-            } else {
-                var io = new ImportOptions(fileObj);
-                targetFootage = app.project.importFile(io);
-            }
-
-            var existingLayer = null;
-            for (var l = 1; l <= comp.numLayers; l++) {
-                var lyr = comp.layer(l);
-                if (lyr && lyr.name && lyr.name.indexOf("Alptuguide") >= 0) {
-                    existingLayer = lyr;
-                    break;
-                }
-            }
-
-            if (!existingLayer) {
-                existingLayer = comp.layers.add(targetFootage);
-                existingLayer.name = "Alptuguide Live Preview";
-                existingLayer.guideLayer = true;
-                existingLayer.moveToBeginning();
-            } else {
-                if (existingLayer.source !== targetFootage) {
-                    existingLayer.replaceSource(targetFootage, true);
-                }
-                existingLayer.guideLayer = true;
-            }
-
-            existingLayer.enabled = true;
-            if (existingLayer.width > 0 && existingLayer.height > 0) {
-                var sx = (comp.width / existingLayer.width) * 100;
-                var sy = (comp.height / existingLayer.height) * 100;
-                existingLayer.property("Scale").setValue([sx, sy]);
-            }
-            return "OK";
-        } else {
-            var proj = app.project;
-            if (!proj) return "Lütfen bir proje açın.";
-            var seq = proj.activeSequence;
-            if (!seq) return "Lütfen bir sequence (sekans) açın.";
-
-            var fileName = fileObj.name;
-            var targetItem = null;
-
-            for (var j = 0; j < proj.rootItem.children.numItems; j++) {
-                var item = proj.rootItem.children[j];
-                if (item.name === fileName) {
-                    targetItem = item;
-                    break;
-                }
-            }
-
-            if (targetItem) {
-                try {
-                    if (typeof targetItem.refreshMedia === "function") {
-                        targetItem.refreshMedia();
-                    } else if (typeof targetItem.changeMediaPath === "function") {
-                        targetItem.changeMediaPath(fileObj.fsName, true);
-                    }
-                } catch (refErr) {}
-            } else {
-                var imported = proj.importFiles([fileObj.fsName], false, proj.rootItem, false);
-                if (!imported) return "Medya aktarılamadı.";
-
-                for (var k = proj.rootItem.children.numItems - 1; k >= 0; k--) {
-                    var it = proj.rootItem.children[k];
-                    if (it.name === fileName) {
-                        targetItem = it;
-                        break;
-                    }
-                }
-            }
-
-            if (!targetItem) return "Proje öğesi bulunamadı.";
-
-            var numTracks = seq.videoTracks.numTracks;
-            if (numTracks === 0) return "Video kanalı yok.";
-
-            var topTrack = seq.videoTracks[numTracks - 1];
-            var clipFound = null;
-
-            for (var c = 0; c < topTrack.clips.numItems; c++) {
-                var clip = topTrack.clips[c];
-                if (clip.name === fileName || (clip.projectItem && clip.projectItem.name === fileName)) {
-                    clipFound = clip;
-                    break;
-                }
-            }
-
-            if (!clipFound) {
-                var playheadTime = seq.getPlayerPosition();
-                topTrack.overwriteClip(targetItem, playheadTime);
-            } else {
-                try {
-                    if (typeof clipFound.disabled !== "undefined") {
-                        clipFound.disabled = false;
-                    }
-                } catch (disErr) {}
-            }
-
-            ensureClipScaleToFrame(topTrack, fileName);
-            return "OK";
+        if (!fileObj.exists) return "Dosya bulunamadı.";
+        app.beginUndoGroup("Alptuguide Guide");
+        var footage = _findFootage(fileObj);
+        if (footage) footage.reload(); else footage = app.project.importFile(new ImportOptions(fileObj));
+        if (!lyr) {
+            lyr = comp.layers.add(footage);
+            lyr.name = GUIDE_LAYER_NAME;
+        } else if (lyr.source !== footage) {
+            lyr.replaceSource(footage, false);
         }
+        lyr.guideLayer = true;
+        lyr.locked = false;
+        lyr.moveToBeginning();
+        lyr.startTime = 0;
+        lyr.inPoint = 0;
+        lyr.outPoint = comp.duration;
+        if (lyr.width > 0 && lyr.height > 0) {
+            lyr.property("Scale").setValue([comp.width / lyr.width * 100, comp.height / lyr.height * 100]);
+            lyr.property("Position").setValue([comp.width / 2, comp.height / 2]);
+        }
+        lyr.locked = true;
+        app.endUndoGroup();
+        return "OK";
     } catch (e) {
-        return "ExtendScript Hatası: " + e.toString();
+        try { app.endUndoGroup(); } catch (e2) {}
+        return "Hata: " + e.toString();
     }
 }
+
+// ---------------------------------------------------------------- Timeline layers
 
 function insertClipPermanent(filePath, displayName) {
     try {
-        var host = getHostApp();
         var fileObj = new File(filePath);
-        if (!fileObj.exists) return "Dosya bulunamadı: " + filePath;
-
-        if (host === "AEFT") {
-            var comp = app.project ? app.project.activeItem : null;
-            if (!comp || !(comp instanceof CompItem)) return "Lütfen bir Composition açın.";
-
-            var io = new ImportOptions(fileObj);
-            var footage = app.project.importFile(io);
-            var lyr = comp.layers.add(footage);
+        if (!fileObj.exists) return "Dosya bulunamadı.";
+        if (getHostApp() === "AEFT") {
+            var comp = _activeComp();
+            if (!comp) return "Lütfen bir Composition açın.";
+            app.beginUndoGroup("Alptuguide Layer");
+            var lyr = comp.layers.add(app.project.importFile(new ImportOptions(fileObj)));
             lyr.name = displayName || fileObj.name;
             lyr.moveToBeginning();
-
             if (lyr.width > 0 && lyr.height > 0) {
-                var sx = (comp.width / lyr.width) * 100;
-                var sy = (comp.height / lyr.height) * 100;
-                lyr.property("Scale").setValue([sx, sy]);
+                lyr.property("Scale").setValue([comp.width / lyr.width * 100, comp.height / lyr.height * 100]);
             }
-            return "OK";
-        } else {
-            var proj = app.project;
-            if (!proj) return "Lütfen bir proje açın.";
-            var seq = proj.activeSequence;
-            if (!seq) return "Lütfen bir sekans açın.";
-
-            var importSuccess = proj.importFiles([fileObj.fsName], false, proj.rootItem, false);
-            if (!importSuccess) return "İçe aktarma başarısız.";
-
-            var targetItem = null;
-            var fileName = fileObj.name;
-            for (var i = proj.rootItem.children.numItems - 1; i >= 0; i--) {
-                var item = proj.rootItem.children[i];
-                if (item.name === fileName) {
-                    targetItem = item;
-                    break;
-                }
-            }
-
-            if (!targetItem) return "Öğe bulunamadı.";
-
-            var numTracks = seq.videoTracks.numTracks;
-            if (numTracks === 0) return "Video kanalı yok.";
-
-            var topTrack = seq.videoTracks[numTracks - 1];
-            var playheadTime = seq.getPlayerPosition();
-
-            topTrack.overwriteClip(targetItem, playheadTime);
-            ensureClipScaleToFrame(topTrack, fileName);
-
+            app.endUndoGroup();
             return "OK";
         }
+        var proj = app.project;
+        if (!proj || !proj.activeSequence) return "Lütfen bir sekans açın.";
+        var seq = proj.activeSequence;
+        if (!proj.importFiles([fileObj.fsName], true, proj.rootItem, false)) return "İçe aktarma başarısız.";
+        var item = null;
+        for (var i = proj.rootItem.children.numItems - 1; i >= 0; i--) {
+            if (proj.rootItem.children[i].name === fileObj.name) { item = proj.rootItem.children[i]; break; }
+        }
+        if (!item) return "Öğe bulunamadı.";
+        var n = seq.videoTracks.numTracks;
+        if (!n) return "Video kanalı yok.";
+        var top = seq.videoTracks[n - 1];
+        top.overwriteClip(item, seq.getPlayerPosition());
+        for (var c = 0; c < top.clips.numItems; c++) {
+            var clip = top.clips[c];
+            if (clip.projectItem && clip.projectItem.name === fileObj.name && typeof clip.setScaleToFrameSize === "function") {
+                try { clip.setScaleToFrameSize(); } catch (sErr) {}
+            }
+        }
+        return "OK";
     } catch (e) {
         return "Hata: " + e.toString();
     }
 }
 
-// 1. Ultra-fast Playhead State Reader (< 0.5ms, zero disk I/O, zero QE lock)
-function getPlayheadState() {
+function cleanAllPreviewClips() {
     try {
-        var host = getHostApp();
-        if (host === "AEFT") {
-            if (!app.project) return '{"ok":false,"error":"NO_PROJECT"}';
-            var comp = app.project.activeItem;
-            if (!comp || !(comp instanceof CompItem)) {
-                return '{"ok":false,"error":"NO_COMP"}';
-            }
-            return JSON.stringify({
-                ok: true,
-                host: "AEFT",
-                time: comp.time,
-                name: comp.name,
-                width: comp.width,
-                height: comp.height
-            });
-        } else {
-            var proj = app.project;
-            if (!proj) return '{"ok":false,"error":"NO_SEQ"}';
-            var seq = proj.activeSequence;
-            if (!seq) return '{"ok":false,"error":"NO_SEQ"}';
-            var ticks = "0";
-            try {
-                var playerPos = seq.getPlayerPosition();
-                if (playerPos && playerPos.ticks !== undefined && playerPos.ticks !== null) {
-                    ticks = String(playerPos.ticks);
+        var removed = 0;
+        if (getHostApp() === "AEFT") {
+            var comp = _activeComp();
+            if (!comp) return "NO_COMP";
+            app.beginUndoGroup("Alptuguide Clean");
+            for (var l = comp.numLayers; l >= 1; l--) {
+                var lyr = comp.layer(l);
+                if (lyr && lyr.name && lyr.name.indexOf("Alptuguide") >= 0) {
+                    lyr.locked = false;
+                    lyr.remove();
+                    removed++;
                 }
-            } catch (posErr) {}
-
-            return '{"ok":true,"host":"PPRO","ticks":"' + ticks + '","width":' + (Number(seq.frameSizeHorizontal) || 1080) + ',"height":' + (Number(seq.frameSizeVertical) || 1920) + '}';
+            }
+            app.endUndoGroup();
+            return "OK:" + removed;
         }
-    } catch (e) {
-        return JSON.stringify({ ok: false, error: e.toString() });
-    }
-}
-
-// 2. Non-Blocking Frame Capture Trigger (Never sleeps on Premiere/AE main thread; Node.js polls file completion asynchronously)
-function captureFrameToTempPath() {
-    try {
-        var host = getHostApp();
-
-        if (host === "AEFT") {
-            if (!app.project) {
-                return JSON.stringify({ ok: false, error: "NO_PROJECT", message: "After Effects projesi açık değil." });
-            }
-            var comp = app.project.activeItem;
-            if (!comp || !(comp instanceof CompItem)) {
-                return JSON.stringify({ ok: false, error: "NO_COMP", message: "Aktif bir Composition bulunamadı." });
-            }
-
-            var tempName = "alptug_ae_" + (new Date()).getTime() + "_" + Math.floor(Math.random() * 1000) + ".png";
-            var tempPath = Folder.temp.fsName.replace(/\\/g, "/") + "/" + tempName;
-            var aeFile = new File(tempPath);
-
-            try {
-                comp.saveFrameToPng(comp.time, aeFile);
-            } catch (aeErr) {
-                return JSON.stringify({ ok: false, error: "AE_SAVE_ERR", message: "AE kare alma hatası: " + aeErr.toString() });
-            }
-
-            return JSON.stringify({
-                ok: true,
-                path: aeFile.fsName,
-                candidates: [aeFile.fsName],
-                host: "AEFT",
-                time: comp.time
-            });
-        } else {
-            if (!app.project) {
-                return JSON.stringify({ ok: false, error: "NO_PROJECT", message: "Premiere projesi açık değil." });
-            }
-            var seq = app.project.activeSequence;
-            if (!seq) {
-                return JSON.stringify({ ok: false, error: "NO_SEQ", message: "Aktif bir sekans açın." });
-            }
-
-            if (!_qeEnabled) {
-                app.enableQE();
-                _qeEnabled = true;
-            }
-            var qeSeq = null;
-
-            try {
-                if (typeof qe !== "undefined" && qe.project) {
-                    qeSeq = qe.project.getActiveSequence();
-                }
-            } catch (e1) {}
-
-            if (!qeSeq) {
-                return JSON.stringify({ ok: false, error: "QE_NOT_FOUND", message: "Premiere sekansı bulunamadı." });
-            }
-
-            var ticks = "0";
-            var timecodeStr = "";
-            try {
-                var pPos = seq.getPlayerPosition();
-                if (pPos && typeof pPos.ticks !== "undefined") {
-                    ticks = String(pPos.ticks);
-                }
-                if (qeSeq.CTI && qeSeq.CTI.timecode) {
-                    timecodeStr = String(qeSeq.CTI.timecode);
-                }
-            } catch (ctiErr) {}
-
-            if (!timecodeStr) {
-                try {
-                    var playerPos = seq.getPlayerPosition();
-                    var sec = (playerPos && typeof playerPos.seconds !== "undefined") ? playerPos.seconds : 0;
-                    var fps = 30;
-                    try {
-                        var fpsVal = seq.getSettings().videoFrameRate;
-                        if (fpsVal && fpsVal.secondsPerFrame) {
-                            fps = 1 / fpsVal.secondsPerFrame;
-                        } else if (typeof fpsVal === "number" && fpsVal > 0) {
-                            fps = fpsVal;
-                        }
-                    } catch (fErr) {}
-                    if (!fps || fps <= 0) fps = 30;
-
-                    var totalFrames = Math.floor(sec * fps);
-                    var fNum = totalFrames % Math.round(fps);
-                    var totalSec = Math.floor(sec);
-                    var sNum = totalSec % 60;
-                    var mNum = Math.floor(totalSec / 60) % 60;
-                    var hNum = Math.floor(totalSec / 3600);
-                    function _tcPad(n) { return (n < 10 ? "0" : "") + n; }
-                    timecodeStr = _tcPad(hNum) + ":" + _tcPad(mNum) + ":" + _tcPad(sNum) + ":" + _tcPad(fNum);
-                } catch (posErr) {
-                    timecodeStr = "00:00:00:00";
+        var seq = app.project ? app.project.activeSequence : null;
+        if (!seq) return "NO_SEQ";
+        for (var t = 0; t < seq.videoTracks.numTracks; t++) {
+            var track = seq.videoTracks[t];
+            for (var c = track.clips.numItems - 1; c >= 0; c--) {
+                var clip = track.clips[c];
+                var nm = ((clip.name || "") + " " + ((clip.projectItem && clip.projectItem.name) || "")).toLowerCase();
+                if (nm.indexOf("alptuguide") >= 0) {
+                    try { clip.remove(false, false); } catch (rErr) { try { clip.disabled = true; } catch (dErr) {} }
+                    removed++;
                 }
             }
-
-            var baseTemp = Folder.temp.fsName.replace(/\\/g, "/") + "/alptug_pr_" + (new Date()).getTime() + "_" + Math.floor(Math.random() * 1000);
-
-            try {
-                qeSeq.exportFramePNG(timecodeStr, baseTemp);
-            } catch (expErr) {
-                return JSON.stringify({ ok: false, error: "QE_EXPORT_ERR", message: "Kare export hatası: " + expErr.toString() });
-            }
-
-            return JSON.stringify({
-                ok: true,
-                path: baseTemp + ".png",
-                candidates: [baseTemp + ".png", baseTemp, baseTemp + ".png.png"],
-                host: "PPRO",
-                ticks: ticks
-            });
         }
-    } catch (err) {
-        return JSON.stringify({ ok: false, error: "EXCEPTION", message: err.toString() });
-    }
-}
-
-// 3. Safe Temp File Cleanup
-function deleteTempFile(filePath) {
-    try {
-        if (filePath) {
-            var f = new File(filePath);
-            if (f.exists) f.remove();
-        }
-        return "OK";
+        return "OK:" + removed;
     } catch (e) {
         return "ERR: " + e.toString();
     }
 }
 
-function cleanupAllTempFiles() {
+// ---------------------------------------------------------------- Editor tools
+
+// Adds a hook marker (3 s) + a platform length-limit marker (only when the edit is longer than the limit).
+function addPlatformMarkers(limitSeconds, platformName) {
     try {
-        var folders = [Folder.temp, new Folder("/tmp")];
-        for (var fIdx = 0; fIdx < folders.length; fIdx++) {
-            var folder = folders[fIdx];
-            if (folder && folder.exists) {
-                var list = folder.getFiles(function(f) {
-                    return (f instanceof File) && (f.name.indexOf("alptug_") === 0 || f.name.indexOf("alptuguide_") === 0);
-                });
-                if (list) {
-                    for (var i = 0; i < list.length; i++) {
-                        try { list[i].remove(); } catch (e) {}
-                    }
-                }
+        var limit = Number(limitSeconds) || 180;
+        var label = String(platformName || "Platform");
+        if (getHostApp() === "AEFT") {
+            var comp = _activeComp();
+            if (!comp) return "Lütfen bir Composition açın.";
+            app.beginUndoGroup("Alptuguide Markers");
+            var mp = comp.markerProperty;
+            for (var k = mp.numKeys; k >= 1; k--) {
+                if (String(mp.keyValue(k).comment).indexOf(MARKER_TAG) === 0) mp.removeKey(k);
             }
+            mp.setValueAtTime(3, new MarkerValue(MARKER_TAG + " · HOOK (ilk 3 sn)"));
+            var added = 1;
+            if (comp.duration > limit) {
+                mp.setValueAtTime(limit, new MarkerValue(MARKER_TAG + " · " + label + " süre limiti"));
+                added++;
+            }
+            app.endUndoGroup();
+            return "OK:" + added;
         }
-    } catch (allErr) {}
-    return "OK";
+        var seq = app.project ? app.project.activeSequence : null;
+        if (!seq) return "Lütfen bir sekans açın.";
+        var markers = seq.markers;
+        var m = markers.getFirstMarker();
+        var stale = [];
+        while (m) {
+            if (String(m.name).indexOf(MARKER_TAG) === 0) stale.push(m);
+            m = markers.getNextMarker(m);
+        }
+        for (var s = 0; s < stale.length; s++) { try { markers.deleteMarker(stale[s]); } catch (dmErr) {} }
+
+        var hook = markers.createMarker(3);
+        hook.name = MARKER_TAG + " · HOOK";
+        hook.comments = "İzleyici ilk 3 saniyede karar verir.";
+        try { hook.setColorByIndex(1); } catch (cErr) {}
+        var count = 1;
+        var dur = (Number(seq.end) - Number(seq.zeroPoint || 0)) / TICKS_PER_SECOND;
+        if (dur > limit) {
+            var lim = markers.createMarker(limit);
+            lim.name = MARKER_TAG + " · " + label + " limiti";
+            lim.comments = label + " için maksimum süre aşılıyor.";
+            try { lim.setColorByIndex(0); } catch (c2Err) {}
+            count++;
+        }
+        return "OK:" + count;
+    } catch (e) {
+        try { app.endUndoGroup(); } catch (e2) {}
+        return "Hata: " + e.toString();
+    }
 }
 
-try {
-    cleanupAllTempFiles();
-} catch (initCleanErr) {}
+// Creates a 9:16 version of the active sequence/comp without touching the original.
+// Premiere: Auto Reframe (Sensei) when available, otherwise clone + resize.
+// After Effects: new 1080x1920 comp with the active comp nested and scaled to cover.
+function createVerticalVersion(w, h) {
+    try {
+        w = Number(w) || 1080;
+        h = Number(h) || 1920;
+        if (getHostApp() === "AEFT") {
+            var comp = _activeComp();
+            if (!comp) return "Lütfen bir Composition açın.";
+            app.beginUndoGroup("Alptuguide 9:16");
+            var nc = app.project.items.addComp(comp.name + " · 9x16", w, h, 1, comp.duration, comp.frameRate);
+            var lyr = nc.layers.add(comp);
+            var sc = Math.max(w / comp.width, h / comp.height) * 100;
+            lyr.property("Scale").setValue([sc, sc]);
+            nc.openInViewer();
+            app.endUndoGroup();
+            return "OK:" + nc.name;
+        }
+        var seq = app.project ? app.project.activeSequence : null;
+        if (!seq) return "Lütfen bir sekans açın.";
+        var newName = seq.name + " · 9x16";
+        if (typeof seq.autoReframeSequence === "function") {
+            try {
+                var rs = seq.autoReframeSequence(9, 16, "default", newName, false);
+                if (rs) {
+                    try { app.project.openSequence(rs.sequenceID); } catch (oErr) {}
+                    return "OK:" + newName + " (Auto Reframe)";
+                }
+            } catch (arErr) {}
+        }
+        var before = {};
+        for (var i = 0; i < app.project.sequences.numSequences; i++) before[app.project.sequences[i].sequenceID] = true;
+        if (!seq.clone()) return "Sekans kopyalanamadı.";
+        var copy = null;
+        for (var j = 0; j < app.project.sequences.numSequences; j++) {
+            var sq = app.project.sequences[j];
+            if (!before[sq.sequenceID]) { copy = sq; break; }
+        }
+        if (!copy) return "Kopya sekans bulunamadı.";
+        var st = copy.getSettings();
+        st.videoFrameWidth = w;
+        st.videoFrameHeight = h;
+        copy.setSettings(st);
+        copy.name = newName;
+        try { app.project.openSequence(copy.sequenceID); } catch (o2Err) {}
+        return "OK:" + newName;
+    } catch (e) {
+        try { app.endUndoGroup(); } catch (e2) {}
+        return "Hata: " + e.toString();
+    }
+}
+
+try { bindHostEvents(); } catch (bindErr) {}

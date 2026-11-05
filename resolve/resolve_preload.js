@@ -158,11 +158,22 @@ window.AlptuguideResolveBridge = {
                 const is916 = Math.abs(aspect - (9 / 16)) < 0.02;
                 const is169 = Math.abs(aspect - (16 / 9)) < 0.02;
                 const isSquare = Math.abs(aspect - 1.0) < 0.02;
+                let fps = 30;
+                try {
+                    const fpsVal = Number(ctx.timeline.GetSetting('timelineFrameRate'));
+                    if (fpsVal > 0) fps = fpsVal;
+                } catch (e) {}
+                const startF = Number(ctx.timeline.GetStartFrame()) || 0;
+                const endF = Number(ctx.timeline.GetEndFrame()) || 0;
+                const dur = (endF > startF && fps > 0) ? (endF - startF) / fps : 0;
+
                 return JSON.stringify({
                     ok: true,
                     name: ctx.timeline.GetName() || 'DaVinci Timeline',
                     width: w,
                     height: h,
+                    fps: Math.round(fps * 1000) / 1000,
+                    duration: Math.round(dur * 100) / 100,
                     aspect: aspect,
                     is916: is916,
                     is169: is169,

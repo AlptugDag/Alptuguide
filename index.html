@@ -2,439 +2,160 @@
 <html lang="tr">
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Alptuguide</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
-<body class="liquid-theme">
-    <!-- Static Ambient Neon Glow Blobs (Zero-GPU-Repaint) -->
-    <div class="ambient-glow glow-cyan"></div>
-    <div class="ambient-glow glow-violet"></div>
-    <div class="ambient-glow glow-pink"></div>
+<body>
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <defs>
+            <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+            <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.2M6.3 6.3C3.6 8 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.7-1.8M9.9 9.9a3 3 0 0 0 4.2 4.2"/></symbol>
+            <symbol id="i-align" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
+            <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+            <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18h2"/></symbol>
+            <symbol id="i-reframe" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><rect x="9" y="3" width="6" height="18" rx="1.5"/></symbol>
+            <symbol id="i-marker" viewBox="0 0 24 24"><path d="M6 3h12v13l-6 5-6-5z"/></symbol>
+            <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 2 2 7l10 5 10-5z"/><path d="m2 17 10 5 10-5M2 12l10 5 10-5"/></symbol>
+            <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></symbol>
+            <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
+            <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+            <symbol id="i-save" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></symbol>
+            <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></symbol>
+        </defs>
+    </svg>
 
-    <!-- Liquid Header -->
-    <header class="header glass-panel">
-        <div class="brand-group">
-            <div class="brand-signature-wrap">
-                <img src="assets/imza.svg" class="brand-signature" alt="Alptuğ Dağ">
-            </div>
-            <div class="brand-meta">
-                <h1 class="brand-title">Alptuguide</h1>
-                <span class="brand-author">Liquid Glass Studio · by Alptuğ Dağ</span>
-            </div>
+    <!-- Top bar: brand + live sequence chip -->
+    <header class="topbar">
+        <div class="brand">
+            <img src="assets/imza.svg" class="brand-sig" alt="Alptuğ Dağ">
+            <span class="brand-name">Alptuguide</span>
         </div>
-        <div class="monitor-badge neon-badge" id="live-badge">
-            <span class="pulse-dot"></span>
-            <span id="live-badge-text">Monitör: Hazır</span>
-        </div>
+        <button type="button" class="seq-chip" id="seq-chip" title="Sekans bilgisi — yenilemek için tıklayın">
+            <span class="seq-dot" id="seq-dot"></span>
+            <span id="seq-text">Sekans bekleniyor…</span>
+        </button>
     </header>
 
-    <!-- Multi-Host Compatibility Strip (Premiere Pro · After Effects · DaVinci Resolve · macOS) -->
-    <div class="host-compat-strip" id="host-compat-strip">
-        <span class="host-chip active" id="chip-ppro">Premiere Pro</span>
-        <span class="host-chip" id="chip-aeft">After Effects</span>
-        <span class="host-chip" id="chip-resolve">DaVinci Resolve</span>
-        <span class="host-chip" id="chip-macos">macOS Overlay</span>
-    </div>
+    <!-- Platform segmented control -->
+    <nav class="seg" role="tablist" id="platform-tabs">
+        <button type="button" class="seg-btn active" data-platform="reels">Reels</button>
+        <button type="button" class="seg-btn" data-platform="tiktok">TikTok</button>
+        <button type="button" class="seg-btn" data-platform="shorts">Shorts</button>
+        <button type="button" class="seg-btn" data-platform="all" title="3 platformun en sıkı ortak kesişimi">Ortak</button>
+    </nav>
 
-    <!-- In-Panel Live Smartphone Preview Monitor -->
-    <div class="glass-card preview-monitor-card" id="preview-card">
-        <div class="preview-card-header">
-            <div class="preview-badge-group">
-                <span class="preview-header-title" id="preview-platform-title">Instagram Reels</span>
-            </div>
-            <div class="preview-action-group">
-                <button type="button" class="btn-live-toggle active" id="btn-toggle-live" title="Otomatik Canlı Monitör İzlemeyi Aç / Kapat">
-                    <span class="live-indicator-dot"></span>
-                    <span id="live-toggle-text">Canlı Monitör: Açık</span>
-                </button>
-                <button type="button" class="btn-force-refresh" id="btn-force-refresh" title="Monitör Karesini Şimdi Yenile">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
-                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
-                    </svg>
-                </button>
-            </div>
-        </div>
-
-        <div class="phone-mockup-frame">
-            <div class="phone-notch"></div>
-            <div class="canvas-wrapper checker-bg" id="canvas-container">
-                <canvas id="render-canvas" width="1080" height="1920"></canvas>
-            </div>
-        </div>
-    </div>
-
-    <!-- Sequence Intelligence & Resolution Status Card -->
-    <div class="glass-card sequence-status-card" id="seq-card">
-        <div class="seq-lead">
-            <div class="seq-icon-bubble">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="2" y="3" width="20" height="14" rx="2"></rect>
-                    <line x1="8" y1="21" x2="16" y2="21"></line>
-                    <line x1="12" y1="17" x2="12" y2="21"></line>
-                </svg>
-            </div>
-            <div class="seq-info">
-                <div class="seq-header-row">
-                    <span class="seq-label">Sekans / Comp Boyutu</span>
-                    <span class="seq-tag" id="seq-aspect-badge">9:16 Dikey</span>
-                </div>
-                <div class="seq-dimensions" id="seq-dim-text">1080 × 1920 px · Tam Uyum</div>
-            </div>
-        </div>
-        <div class="seq-controls">
-            <button id="btn-sync-monitor" class="btn-neon-refresh" type="button" title="Program Monitörünü ve Sekansı Canlı Yenile">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
-                </svg>
-                <span>Yenile</span>
-            </button>
-            <label class="liquid-switch" title="Monitör Katmanını Aç / Kapat">
-                <input type="checkbox" id="check-live-monitor" checked>
-                <span class="liquid-slider"></span>
-            </label>
-        </div>
-    </div>
-
-    <!-- Platform Selector Tabs (1:1 Verified Platforms + Universal Cross-Post) -->
-    <div class="platform-tabs-container">
-        <div class="platform-tabs" role="tablist">
-            <button class="platform-tab active" data-platform="reels" id="tab-reels" type="button" title="Instagram Reels (2025/2026 Doğrulanmış Kılavuz)">
-                <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
-                    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
-                    <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
-                </svg>
-                <span>Reels</span>
-            </button>
-            <button class="platform-tab" data-platform="tiktok" id="tab-tiktok" type="button" title="TikTok (2025/2026 Doğrulanmış Kılavuz)">
-                <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"></path>
-                </svg>
-                <span>TikTok</span>
-            </button>
-            <button class="platform-tab" data-platform="shorts" id="tab-shorts" type="button" title="YouTube Shorts (2025/2026 Doğrulanmış Kılavuz)">
-                <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polygon points="10 8 16 12 10 16 10 8"></polygon>
-                    <rect x="2" y="4" width="20" height="16" rx="4"></rect>
-                </svg>
-                <span>Shorts</span>
-            </button>
-            <button class="platform-tab" data-platform="all" id="tab-all" type="button" title="Ortak Kılavuz (3 Platformun En Sıkı Kesişimi)">
-                <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="3" y="3" width="18" height="18" rx="3"></rect>
-                    <line x1="3" y1="9" x2="21" y2="9"></line>
-                    <line x1="3" y1="15" x2="21" y2="15"></line>
-                    <line x1="9" y1="3" x2="9" y2="21"></line>
-                    <line x1="15" y1="3" x2="15" y2="21"></line>
-                </svg>
-                <span>Ortak</span>
-            </button>
-        </div>
-    </div>
-
-    <!-- Section 4 (Moved Up for Fast Access): Kılavuz Çizgileri, Altyazı Güvenli Alanı & Opaklık -->
-    <div class="glass-card">
-        <div class="card-header">
-            <span class="neon-pill-tag emerald">KILAVUZ</span>
-            <h2 class="card-title">1:1 Platform Kılavuzu & Görünüm</h2>
-        </div>
-
-        <div class="safezone-spec-pill" id="safezone-spec-pill">
-            <span class="spec-platform" id="spec-platform-name">Instagram Reels (1080×1920):</span>
-            <span class="spec-metrics" id="spec-metrics-text">Üst 269px · Alt 672px (440px UI + 110px Bar) · Sağ 146px · Sol 65px</span>
-        </div>
-
-        <div class="toggle-row" style="margin-top: 8px;">
-            <div class="toggle-meta">
-                <span class="toggle-title">1:1 Güvenli Alan Kılavuzunu Göster</span>
-                <span class="toggle-desc" id="guide-active-desc">Aktif: Instagram Reels (Meta 1:1 Doğrulanmış)</span>
-            </div>
-            <label class="liquid-switch">
-                <input type="checkbox" id="check-safezones" checked>
-                <span class="liquid-slider"></span>
-            </label>
-        </div>
-
-        <!-- Subtitle Safe Zone Feature -->
-        <div class="toggle-row" style="margin-top: 9px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.06);">
-            <div class="toggle-meta">
-                <span class="toggle-title">Altyazı Güvenli Alanı Çizgisi</span>
-                <span class="toggle-desc" id="subtitle-zone-desc">Altyazıların buton ve açıklamaların üstünde kalmasını sağlar</span>
-            </div>
-            <label class="liquid-switch">
-                <input type="checkbox" id="check-subtitle-zone">
-                <span class="liquid-slider"></span>
-            </label>
-        </div>
-
-        <!-- Show Mock UI Feature -->
-        <div class="toggle-row" style="margin-top: 9px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.06);">
-            <div class="toggle-meta">
-                <span class="toggle-title">Platform Arayüz Simülasyonu (UI)</span>
-                <span class="toggle-desc">İkonlar, açıklama, ses ve alt navigasyon barını gösterir</span>
-            </div>
-            <label class="liquid-switch">
-                <input type="checkbox" id="check-show-ui" checked>
-                <span class="liquid-slider"></span>
-            </label>
-        </div>
-
-        <!-- Opacity Slider Feature -->
-        <div class="slider-control-group" style="margin-top: 11px; padding-top: 9px; border-top: 1px solid rgba(255,255,255,0.06);">
-            <div class="slider-meta">
-                <span class="slider-label">Overlay Opaklığı</span>
-                <span class="slider-value" id="opacity-val-text">100%</span>
-            </div>
-            <input type="range" id="input-opacity" class="liquid-range-slider" min="20" max="100" value="100" step="5">
-        </div>
-
-        <!-- Native macOS Floating Overlay Bar -->
-        <div class="floating-overlay-bar" style="margin-top: 11px; padding-top: 9px; border-top: 1px solid rgba(255,255,255,0.06);">
-            <button id="btn-launch-overlay" class="btn-overlay-pill" type="button" title="Timeline'a hiçbir katman eklemeden ekran üstü şeffaf kılavuz penceresini açar">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
-                    <rect x="2" y="3" width="20" height="14" rx="2"></rect>
-                    <path d="M8 21h8M12 17v4"></path>
-                </svg>
-                <span id="overlay-btn-text">Ekran Üstü Overlay Aç</span>
-            </button>
-            <button id="btn-align-overlay" class="btn-overlay-pill secondary" type="button" title="Ekran üstü kılavuz penceresini Program Monitörüne hizalamak için düzenleme modunu açar">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
-                    <polyline points="15 3 21 3 21 9"></polyline>
-                    <polyline points="9 21 3 21 3 15"></polyline>
-                    <line x1="21" y1="3" x2="14" y2="10"></line>
-                    <line x1="3" y1="21" x2="10" y2="14"></line>
-                </svg>
-                <span>Monitöre Hizala</span>
-            </button>
-        </div>
-    </div>
-
-    <!-- Section 1: Profil & Hesap (Multi-Account Presets Entegre) -->
-    <div class="glass-card">
-        <div class="card-header-with-presets">
-            <div class="card-header">
-                <span class="neon-pill-tag cyan">HESAP</span>
-                <h2 class="card-title">Profil & Hesap</h2>
-            </div>
-            <!-- Preset Selector Bar -->
-            <div class="preset-bar">
-                <select id="preset-selector" class="glass-select" title="Kayıtlı Profil Seçin">
-                    <option value="__default__">Varsayılan Profil</option>
-                </select>
-                <button id="btn-save-preset" class="btn-preset-action" type="button" title="Mevcut Bilgileri Preset Olarak Kaydet">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                        <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                        <polyline points="7 3 7 8 15 8"></polyline>
-                    </svg>
-                    <span>Kaydet</span>
-                </button>
-                <button id="btn-delete-preset" class="btn-preset-action danger" type="button" title="Seçili Preseti Sil">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="3 6 5 6 21 6"></polyline>
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                    </svg>
-                </button>
-            </div>
-        </div>
-
-        <div class="form-item">
-            <label class="form-label">Profil Fotoğrafı</label>
-            <div class="avatar-uploader">
-                <div class="avatar-thumb-frame">
-                    <img id="avatar-img-preview" src="assets/sample_avatar.png" alt="Avatar">
-                </div>
-                <div class="avatar-meta">
-                    <label class="btn-glass-upload" for="avatar-input">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                            <polyline points="17 8 12 3 7 8"></polyline>
-                            <line x1="12" y1="3" x2="12" y2="15"></line>
-                        </svg>
-                        <span>Görsel Yükle</span>
-                    </label>
-                    <input type="file" id="avatar-input" accept="image/*" style="display: none;">
-                    <span id="avatar-name" class="avatar-file-name">sample_avatar.png</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="form-item">
-            <label class="form-label" for="input-username">Kullanıcı Adı / Kanal</label>
-            <div class="input-with-prefix">
-                <span class="input-prefix" id="username-prefix">@</span>
-                <input type="text" id="input-username" class="glass-input has-prefix" value="alptugdag" placeholder="kullanıcı adı">
-            </div>
-        </div>
-
-        <div class="liquid-toggles-wrap">
-            <div class="toggle-row">
-                <div class="toggle-meta">
-                    <span class="toggle-title">Mavi Tik Rozeti</span>
-                    <span class="toggle-desc">Onaylı profil rozetini gösterir</span>
-                </div>
-                <label class="liquid-switch">
-                    <input type="checkbox" id="check-verified" checked>
-                    <span class="liquid-slider"></span>
-                </label>
-            </div>
-
-            <div class="toggle-row">
-                <div class="toggle-meta">
-                    <span class="toggle-title" id="follow-toggle-label">Takip Et Butonu</span>
-                    <span class="toggle-desc" id="follow-toggle-desc">Profil yanında "Takip Et" butonunu gösterir</span>
-                </div>
-                <label class="liquid-switch">
-                    <input type="checkbox" id="check-follow" checked>
-                    <span class="liquid-slider"></span>
-                </label>
-            </div>
-        </div>
-    </div>
-
-    <!-- Section 2: İçerik & Metinler -->
-    <div class="glass-card">
-        <div class="card-header">
-            <span class="neon-pill-tag violet">İÇERİK</span>
-            <h2 class="card-title">İçerik & Metinler</h2>
-        </div>
-
-        <div class="form-item">
-            <label class="form-label" for="input-caption">Açıklama (Caption)</label>
-            <textarea id="input-caption" class="glass-textarea" rows="3" placeholder="Gönderi açıklaması yazın...">Bu eklenti @alptugdag tarafından yapılmıştır, destek için takip edebilirsin, kolay gelsin!</textarea>
-        </div>
-
-        <div class="form-item">
-            <label class="form-label" for="input-audio" id="audio-input-label">Ses / Müzik Başlığı</label>
-            <div class="input-with-icon">
-                <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M9 18V5l12-2v13"></path>
-                    <circle cx="6" cy="18" r="3"></circle>
-                    <circle cx="18" cy="16" r="3"></circle>
-                </svg>
-                <input type="text" id="input-audio" class="glass-input has-icon" value="alptugdag · Orijinal Ses" placeholder="Ses veya müzik adı">
-            </div>
-        </div>
-    </div>
-
-    <!-- Section 3: Etkileşim Sayıları -->
-    <div class="glass-card">
-        <div class="card-header">
-            <span class="neon-pill-tag pink">METRİKLER</span>
-            <h2 class="card-title">Etkileşim Sayıları</h2>
-        </div>
-
-        <div class="metrics-grid">
-            <div class="metric-box">
-                <label class="metric-label" for="input-likes">
-                    <svg class="metric-icon heart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
-                    </svg>
-                    <span id="metric-like-text">Beğeni</span>
-                </label>
-                <input type="text" id="input-likes" class="glass-input metric-input" value="12.4K">
-            </div>
-
-            <div class="metric-box">
-                <label class="metric-label" for="input-comments">
-                    <svg class="metric-icon comment" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                    </svg>
-                    <span>Yorum</span>
-                </label>
-                <input type="text" id="input-comments" class="glass-input metric-input" value="348">
-            </div>
-
-            <div class="metric-box" id="metric-box-saves">
-                <label class="metric-label" for="input-saves">
-                    <svg class="metric-icon bookmark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
-                    </svg>
-                    <span>Kaydetme</span>
-                </label>
-                <input type="text" id="input-saves" class="glass-input metric-input" value="9.8K">
-            </div>
-
-            <div class="metric-box" id="metric-box-shares">
-                <label class="metric-label" for="input-shares">
-                    <svg class="metric-icon share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="18" cy="5" r="3"></circle>
-                        <circle cx="6" cy="12" r="3"></circle>
-                        <circle cx="18" cy="19" r="3"></circle>
-                        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-                        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-                    </svg>
-                    <span id="metric-share-text">Paylaşım</span>
-                </label>
-                <input type="text" id="input-shares" class="glass-input metric-input" value="1.2K">
-            </div>
-        </div>
-    </div>
-
-    <!-- Primary Action Buttons with Neon Under-Glow Shadows -->
-    <div class="action-buttons-group">
-        <button id="btn-insert-overlay" class="btn btn-neon-primary" type="button">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
-                <polyline points="2 17 12 22 22 17"></polyline>
-                <polyline points="2 12 12 17 22 12"></polyline>
-            </svg>
-            <span class="btn-text">Timeline'a Kalıcı Katman Ekle</span>
+    <!-- Primary action: show guide directly on the Program Monitor (never rendered) -->
+    <section class="monitor-row">
+        <button type="button" class="btn-monitor" id="btn-monitor" aria-pressed="false">
+            <svg class="ico"><use href="#i-eye"/></svg>
+            <span class="btn-monitor-text">
+                <strong id="monitor-title">Program Monitöründe Göster</strong>
+                <small id="monitor-sub">Render'a girmez · ⌃⌥G</small>
+            </span>
         </button>
-
-        <button id="btn-insert-guides" class="btn btn-neon-accent" type="button">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                <line x1="3" y1="9" x2="21" y2="9"></line>
-                <line x1="3" y1="15" x2="21" y2="15"></line>
-                <line x1="9" y1="3" x2="9" y2="21"></line>
-                <line x1="15" y1="3" x2="15" y2="21"></line>
-            </svg>
-            <span class="btn-text" id="btn-guides-text">Kılavuz Çizgilerini Timeline'a Ekle</span>
+        <button type="button" class="btn-icon" id="btn-align" title="Monitöre hizala (ilk kullanımda bir kez)">
+            <svg class="ico"><use href="#i-align"/></svg>
         </button>
+    </section>
 
-        <button id="btn-export-png" class="btn btn-neon-glass" type="button">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
-            <span class="btn-text">Masaüstüne PNG Kaydet</span>
-        </button>
-
-        <!-- Pre-Render Cleaner Button -->
-        <button id="btn-clean-timeline" class="btn btn-neon-cleaner" type="button" title="Timeline'daki tüm Alptuguide önizleme ve kılavuz katmanlarını temizler">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="3 6 5 6 21 6"></polyline>
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                <line x1="10" y1="11" x2="10" y2="17"></line>
-                <line x1="14" y1="11" x2="14" y2="17"></line>
-            </svg>
-            <span class="btn-text">Timeline Temizleyici (Export Öncesi Temizle)</span>
-        </button>
-    </div>
-
-    <!-- Animated Status Message Banner -->
-    <div id="status-box" class="status-msg"></div>
-
-    <!-- Permanent Copyright Footer -->
-    <footer class="footer glass-footer">
-        <div class="footer-content">
-            <div class="footer-signature-wrap">
-                <img src="assets/imza.svg" class="footer-signature" alt="Alptuğ Dağ">
+    <main class="layout">
+        <!-- Mini preview (pure guide render — no frame grabbing, zero host load) -->
+        <section class="card preview-card" id="preview-card">
+            <div class="preview-stage" id="preview-stage">
+                <canvas id="render-canvas"></canvas>
             </div>
-            <div class="footer-details">
-                <span class="footer-title">Alptuguide™ Studio v3.1</span>
-                <span class="footer-copy">© 2026 Alptuğ Dağ · Tüm Hakları Saklıdır</span>
-            </div>
+            <p class="spec" id="spec-text">Üst 269 · Alt 672 · Sol 65 · Sağ 146 px</p>
+        </section>
+
+        <div class="controls">
+            <!-- Overlay layers as compact chips -->
+            <section class="card">
+                <div class="chips" id="layer-chips">
+                    <button type="button" class="chip" data-key="showSafeZones">Güvenli alan</button>
+                    <button type="button" class="chip" data-key="showMockUi">Arayüz</button>
+                    <button type="button" class="chip" data-key="showSubtitleZone">Altyazı çizgisi</button>
+                    <button type="button" class="chip" data-key="thirds">Üçte bir</button>
+                    <button type="button" class="chip" data-key="center">Merkez</button>
+                    <button type="button" class="chip" data-key="feed45" title="Instagram/Facebook akışında Reels 4:5 kırpılır">Feed 4:5</button>
+                    <button type="button" class="chip" data-key="grid34" title="Instagram profil ızgarası 3:4 kırpma">Grid 3:4</button>
+                    <button type="button" class="chip" data-key="square">1:1</button>
+                    <button type="button" class="chip" data-key="broadcast" title="Action %90 / Title %80">Broadcast</button>
+                </div>
+                <label class="slider-row">
+                    <span>Opaklık</span>
+                    <input type="range" id="input-opacity" min="20" max="100" step="5" value="100">
+                    <output id="opacity-val">100%</output>
+                </label>
+            </section>
+
+            <!-- Profile & content (collapsed by default) -->
+            <details class="card fold" id="fold-profile">
+                <summary><span>Profil &amp; İçerik</span><svg class="ico chev"><use href="#i-chev"/></svg></summary>
+                <div class="fold-body">
+                    <div class="row">
+                        <select id="preset-selector" class="field" title="Kayıtlı profil"></select>
+                        <button type="button" class="btn-icon sm" id="btn-save-preset" title="Profili kaydet"><svg class="ico"><use href="#i-save"/></svg></button>
+                        <button type="button" class="btn-icon sm danger" id="btn-delete-preset" title="Profili sil"><svg class="ico"><use href="#i-trash"/></svg></button>
+                    </div>
+                    <div class="row">
+                        <label class="avatar" for="avatar-input" title="Profil fotoğrafı yükle">
+                            <img id="avatar-img-preview" src="assets/sample_avatar.png" alt="">
+                            <svg class="ico"><use href="#i-upload"/></svg>
+                        </label>
+                        <input type="file" id="avatar-input" accept="image/*" hidden>
+                        <div class="field prefix"><span>@</span><input type="text" id="input-username" placeholder="kullanıcı adı"></div>
+                    </div>
+                    <div class="chips">
+                        <button type="button" class="chip" data-key="isVerified">Mavi tik</button>
+                        <button type="button" class="chip" data-key="showFollow" id="chip-follow">Takip et</button>
+                    </div>
+                    <textarea id="input-caption" class="field" rows="2" placeholder="Açıklama"></textarea>
+                    <input type="text" id="input-audio" class="field" placeholder="Ses / müzik">
+                    <div class="metrics">
+                        <label><span id="metric-like-text">Beğeni</span><input type="text" id="input-likes" class="field"></label>
+                        <label><span>Yorum</span><input type="text" id="input-comments" class="field"></label>
+                        <label id="metric-box-saves"><span>Kaydet</span><input type="text" id="input-saves" class="field"></label>
+                        <label><span id="metric-share-text">Paylaş</span><input type="text" id="input-shares" class="field"></label>
+                    </div>
+                </div>
+            </details>
+
+            <!-- Editor tools -->
+            <details class="card fold" id="fold-tools" open>
+                <summary><span>Kurgu Araçları</span><svg class="ico chev"><use href="#i-chev"/></svg></summary>
+                <div class="fold-body tools">
+                    <button type="button" class="tool" id="btn-reframe" title="Orijinale dokunmadan 9:16 kopya oluşturur (Premiere: Auto Reframe)">
+                        <svg class="ico"><use href="#i-reframe"/></svg><span>9:16 Kopya</span>
+                    </button>
+                    <button type="button" class="tool" id="btn-markers" title="3. saniyeye HOOK, süre limitine uyarı marker'ı ekler">
+                        <svg class="ico"><use href="#i-marker"/></svg><span>Hook &amp; Limit</span>
+                    </button>
+                    <button type="button" class="tool" id="btn-insert-guides" title="Kılavuzu PNG olarak en üst kanala ekler">
+                        <svg class="ico"><use href="#i-grid"/></svg><span>Kılavuz Klibi</span>
+                    </button>
+                    <button type="button" class="tool" id="btn-insert-overlay" title="Arayüz simülasyonunu PNG olarak en üst kanala ekler">
+                        <svg class="ico"><use href="#i-layers"/></svg><span>Arayüz Klibi</span>
+                    </button>
+                    <button type="button" class="tool" id="btn-export-png" title="Şeffaf PNG'yi masaüstüne kaydeder">
+                        <svg class="ico"><use href="#i-download"/></svg><span>PNG</span>
+                    </button>
+                    <button type="button" class="tool danger" id="btn-clean-timeline" title="Timeline'daki tüm Alptuguide kliplerini kaldırır">
+                        <svg class="ico"><use href="#i-trash"/></svg><span>Temizle</span>
+                    </button>
+                </div>
+            </details>
         </div>
-    </footer>
+    </main>
 
-    <!-- Core & CEP Scripts -->
+    <footer class="foot">© 2026 Alptuğ Dağ · Alptuguide™ v3.2</footer>
+    <div id="toast" class="toast" role="status"></div>
+
     <script src="js/CSInterface.js"></script>
     <script src="core/safezones.js"></script>
     <script src="core/layout.js"></script>
     <script src="core/renderer.js"></script>
+    <script src="core/compguides.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html>

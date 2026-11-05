@@ -1,4 +1,4 @@
-// Alptuguide™ Native macOS Liquid Glass Studio & Floating Safe-Zone Overlay v3.1
+// Alptuguide™ Native macOS Liquid Glass Studio & Floating Safe-Zone Overlay v3.2
 // Copyright (c) 2026 Alptuğ Dağ (@alptugdag). All rights reserved.
 //
 // Dual-window architecture:
@@ -9,11 +9,13 @@
 
 import Cocoa
 import WebKit
+import Carbon.HIToolbox
 
 let shareDir = FileManager.default.homeDirectoryForCurrentUser
     .appendingPathComponent("Library/Application Support/Alptuguide", isDirectory: true)
 let imageURL = shareDir.appendingPathComponent("overlay.png")
 let stateURL = shareDir.appendingPathComponent("state.json")
+let statusURL = shareDir.appendingPathComponent("overlay_status.json")
 
 struct OverlayState: Codable {
     var visible: Bool?
@@ -21,6 +23,7 @@ struct OverlayState: Codable {
     var openStudio: Bool?
     var host: String?
     var platform: String?
+    var aspect: Double?
     var rev: Int?
     var quit: Bool?
 }
@@ -65,7 +68,7 @@ final class OverlayView: NSView {
         }
 
         if editing {
-            let text = "Alptuguide™ Hizalama Modu\nPencereyi Program Monitörü / Viewer video karesine oturtun.\nKenarlardan boyutlandırın, ortadan sürükleyin.\nKilitlemek için Enter veya Esc tuşuna basın."
+            let text = "Alptuguide™ Hizalama\nVideo karesine oturtun: ortadan sürükleyin, kenardan boyutlandırın.\nOk tuşları 1px (⇧ 10px) · + / − ölçek · Enter kilitler.\nAyar editör penceresine göre kaydedilir ve pencereyi takip eder."
             let para = NSMutableParagraphStyle()
             para.alignment = .center
             let attrs: [NSAttributedString.Key: Any] = [
@@ -80,10 +83,17 @@ final class OverlayView: NSView {
     }
 
     override func keyDown(with event: NSEvent) {
-        if event.keyCode == 36 || event.keyCode == 53 {
-            (NSApp.delegate as? AppDelegate)?.setEditing(false)
-        } else {
-            super.keyDown(with: event)
+        guard let d = NSApp.delegate as? AppDelegate else { return super.keyDown(with: event) }
+        let step: CGFloat = event.modifierFlags.contains(.shift) ? 10 : 1
+        switch event.keyCode {
+        case 36, 76, 53: d.setEditing(false)                 // Enter / Esc -> lock
+        case 123: d.nudge(dx: -step, dy: 0)                  // ←
+        case 124: d.nudge(dx: step, dy: 0)                   // →
+        case 125: d.nudge(dx: 0, dy: -step)                  // ↓
+        case 126: d.nudge(dx: 0, dy: step)                   // ↑
+        case 24, 69: d.scaleOverlay(by: 1 + 0.004 * step)    // + / =
+        case 27, 78: d.scaleOverlay(by: 1 - 0.004 * step)    // -
+        default: super.keyDown(with: event)
         }
     }
 }
@@ -162,6 +172,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
             self?.reloadActiveImage(force: false)
         }
         updateVisibility()
+
+        NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            if event.modifierFlags.contains([.control, .option]) && event.keyCode == 5 {
+                DispatchQueue.main.async { self?.toggleVisible() }
+            }
+        }
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            if event.modifierFlags.contains([.control, .option]) && event.keyCode == 5 {
+                DispatchQueue.main.async { self?.toggleVisible() }
+                return nil
+            }
+            return event
+        }
+        writeStatus()
 
         let args = CommandLine.arguments
         if args.contains("--studio") {
@@ -608,6 +632,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         }
     }
 
+
+    func nudge(dx: CGFloat, dy: CGFloat) {
+        var f = window.frame
+        f.origin.x += dx
+        f.origin.y += dy
+        window.setFrame(f, display: true)
+        saveFrame()
+    }
+
+    func scaleOverlay(by factor: CGFloat) {
+        var f = window.frame
+        let newH = max(120, f.height * factor)
+        let newW = newH * aspect
+        let dx = (newW - f.width) / 2
+        let dy = (newH - f.height) / 2
+        f.origin.x -= dx
+        f.origin.y -= dy
+        f.size.width = newW
+        f.size.height = newH
+        window.setFrame(f, display: true)
+        saveFrame()
+        view.needsDisplay = true
+    }
+
+    func writeStatus() {
+        let dict: [String: Any] = [
+            "visible": wantVisible,
+            "editing": editing,
+            "host": host,
+            "timestamp": Date().timeIntervalSince1970
+        ]
+        if let d = try? JSONSerialization.data(withJSONObject: dict) {
+            try? d.write(to: statusURL)
+        }
+    }
+
     func setEditing(_ on: Bool) {
         editing = on
         view.editing = on
@@ -626,6 +686,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         }
         view.needsDisplay = true
         updateVisibility()
+        writeStatus()
     }
 
     @objc func toggleEdit() { setEditing(!editing) }
@@ -633,6 +694,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     @objc func toggleVisible() {
         wantVisible.toggle()
         updateVisibility()
+        writeStatus()
     }
 
     @objc func quit() { NSApp.terminate(nil) }

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Alptuguide™ Studio v3.1 — DaVinci Resolve Menu Script (Workspace > Scripts > Alptuguide Studio)
+Alptuguide™ Studio v3.2 — DaVinci Resolve Menu Script (Workspace > Scripts > Alptuguide Studio)
 Copyright (c) 2026 Alptuğ Dağ (@alptugdag). All rights reserved.
 
 Launches the native macOS Liquid Glass Studio window (Alptuguide.app) connected directly

@@ -1,307 +1,132 @@
 /**
- * Alptuguide™ Studio v3.1 — Main Controller
+ * Alptuguide™ v3.2 — Panel controller
  * Copyright (c) 2026 Alptuğ Dağ (@alptugdag). All rights reserved.
  *
- * Clean, zero-lag, asynchronous architecture:
- * - Zero synchronous sleep / main-thread locks
- * - RequestAnimationFrame-batched canvas rendering
- * - Non-intrusive Playhead Settle Detection (never interrupts scrubbing/playback)
- * - 1:1 Verified Safe-Zone & Native macOS Floating Overlay synchronization
+ * Architecture (performance first):
+ * - Zero polling and zero frame grabbing. The host is only called on explicit actions,
+ *   on panel focus, and when Premiere pushes an "active sequence changed" event.
+ * - "Program Monitöründe Göster":
+ *     After Effects  -> native Guide Layer inside the comp (AE never renders guide layers).
+ *     Premiere / DaVinci / others -> click-through native macOS overlay pinned to the
+ *     Program Monitor, following the host window. Nothing is added to the timeline.
+ * - The preview canvas renders at its on-screen size × devicePixelRatio (not 1080×1920),
+ *   and the overlay PNG is only encoded while the monitor overlay is actually on.
  */
-
 (function () {
     'use strict';
 
-    var csInterface = (typeof CSInterface !== 'undefined' && (window.__adobe_cep__ || window.cep)) ? new CSInterface() : null;
-    var fs = null;
-    var path = null;
-    var os = null;
-    var childProcess = null;
-    var nativeCallSeq = 0;
-    var nativeCallbacks = {};
-
-    window.__alptuguideNativeCallback = function (id, resultStr) {
-        var cb = nativeCallbacks[id];
-        if (cb) {
-            delete nativeCallbacks[id];
-            cb(resultStr);
-        }
-    };
-
-    function hasNativeWebKitBridge() {
-        return Boolean(
-            window.webkit &&
-            window.webkit.messageHandlers &&
-            window.webkit.messageHandlers.alptuguide
-        );
-    }
-
-    function sendNativeMessage(payload, callback) {
-        if (!hasNativeWebKitBridge()) {
-            if (callback) callback('');
-            return;
-        }
-        var id = ++nativeCallSeq;
-        if (callback) {
-            nativeCallbacks[id] = callback;
-        }
-        payload.callbackId = id;
-        try {
-            window.webkit.messageHandlers.alptuguide.postMessage(payload);
-        } catch (e) {
-            delete nativeCallbacks[id];
-            if (callback) callback('');
-        }
-    }
-
+    // ------------------------------------------------------------------ Environment / bridges
+    var root = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this);
+    var csInterface = (typeof CSInterface !== 'undefined' && root && (root.__adobe_cep__ || root.cep)) ? new CSInterface() : null;
+    var nodeRequire = (typeof require === 'function') ? require
+        : (root && root.cep_node && typeof root.cep_node.require === 'function') ? root.cep_node.require : null;
+    var fs = null, path = null, os = null, childProcess = null;
     try {
-        if (typeof require === 'function') {
-            fs = require('fs');
-            path = require('path');
-            os = require('os');
-            childProcess = require('child_process');
-        } else if (window.cep_node && typeof window.cep_node.require === 'function') {
-            fs = window.cep_node.require('fs');
-            path = window.cep_node.require('path');
-            os = window.cep_node.require('os');
-            childProcess = window.cep_node.require('child_process');
+        if (nodeRequire) {
+            fs = nodeRequire('fs');
+            path = nodeRequire('path');
+            os = nodeRequire('os');
+            childProcess = nodeRequire('child_process');
         }
     } catch (e) {}
 
-    // DOM Elements
-    var canvas = document.getElementById('render-canvas');
-    var canvasContainer = document.getElementById('canvas-container');
-    var previewPlatformTitle = document.getElementById('preview-platform-title');
-    var liveBadge = document.getElementById('live-badge');
-    var liveBadgeText = document.getElementById('live-badge-text');
-    var btnToggleLive = document.getElementById('btn-toggle-live');
-    var liveToggleText = document.getElementById('live-toggle-text');
-    var btnForceRefresh = document.getElementById('btn-force-refresh');
+    var resolveBridge = (root && root.AlptuguideResolveBridge) || null;
+    var nativeSeq = 0, nativeCallbacks = {};
+    if (root) {
+        root.__alptuguideNativeCallback = function (id, result) {
+            var cb = nativeCallbacks[id];
+            if (cb) { delete nativeCallbacks[id]; cb(result); }
+        };
+    }
+    function hasNative() {
+        return !!(root && root.webkit && root.webkit.messageHandlers && root.webkit.messageHandlers.alptuguide);
+    }
+    function sendNative(payload, cb) {
+        if (!hasNative()) { if (cb) cb(''); return; }
+        var id = ++nativeSeq;
+        if (cb) nativeCallbacks[id] = cb;
+        payload.callbackId = id;
+        try { window.webkit.messageHandlers.alptuguide.postMessage(payload); }
+        catch (e) { delete nativeCallbacks[id]; if (cb) cb(''); }
+    }
 
-    var seqAspectBadge = document.getElementById('seq-aspect-badge');
-    var seqDimText = document.getElementById('seq-dim-text');
-    var btnSyncMonitor = document.getElementById('btn-sync-monitor');
-    var checkLiveMonitor = document.getElementById('check-live-monitor');
+    // Unified host call: cmd + JSON-safe args
+    function callHost(cmd, args, cb) {
+        args = args || [];
+        if (resolveBridge && typeof resolveBridge.evalCommand === 'function') {
+            var r = resolveBridge.evalCommand(cmd, args);
+            if (cb) setTimeout(function () { cb(r); }, 0);
+            return;
+        }
+        if (csInterface) {
+            var script = cmd + '(' + args.map(function (a) { return JSON.stringify(a); }).join(',') + ')';
+            csInterface.evalScript(script, function (res) { if (cb) cb(res); });
+            return;
+        }
+        if (hasNative()) { sendNative({ action: 'hostCommand', cmd: cmd, args: args }, cb); return; }
+        if (cb) cb('');
+    }
 
-    var tabButtons = document.querySelectorAll('.platform-tab');
-    var specPlatformName = document.getElementById('spec-platform-name');
-    var specMetricsText = document.getElementById('spec-metrics-text');
-    var guideActiveDesc = document.getElementById('guide-active-desc');
+    var $ = function (id) { return document.getElementById(id); };
+    var SHARE_DIR = (os && path) ? path.join(os.homedir(), 'Library', 'Application Support', 'Alptuguide') : null;
+    var OVERLAY_APP_CANDIDATES = ['/Applications/Alptuguide.app'];
+    if (SHARE_DIR) OVERLAY_APP_CANDIDATES.push(path.join(SHARE_DIR, 'Alptuguide Overlay.app'));
 
-    var checkSafeZones = document.getElementById('check-safezones');
-    var checkSubtitleZone = document.getElementById('check-subtitle-zone');
-    var checkShowUi = document.getElementById('check-show-ui');
-    var inputOpacity = document.getElementById('input-opacity');
-    var opacityValText = document.getElementById('opacity-val-text');
-
-    var btnLaunchOverlay = document.getElementById('btn-launch-overlay');
-    var overlayBtnText = document.getElementById('overlay-btn-text');
-    var btnAlignOverlay = document.getElementById('btn-align-overlay');
-
-    var presetSelector = document.getElementById('preset-selector');
-    var btnSavePreset = document.getElementById('btn-save-preset');
-    var btnDeletePreset = document.getElementById('btn-delete-preset');
-
-    var avatarInput = document.getElementById('avatar-input');
-    var avatarImgPreview = document.getElementById('avatar-img-preview');
-    var avatarName = document.getElementById('avatar-name');
-
-    var inputUsername = document.getElementById('input-username');
-    var checkVerified = document.getElementById('check-verified');
-    var checkFollow = document.getElementById('check-follow');
-    var followToggleLabel = document.getElementById('follow-toggle-label');
-    var followToggleDesc = document.getElementById('follow-toggle-desc');
-
-    var inputCaption = document.getElementById('input-caption');
-    var inputAudio = document.getElementById('input-audio');
-    var audioInputLabel = document.getElementById('audio-input-label');
-
-    var inputLikes = document.getElementById('input-likes');
-    var inputComments = document.getElementById('input-comments');
-    var inputSaves = document.getElementById('input-saves');
-    var inputShares = document.getElementById('input-shares');
-    var metricLikeText = document.getElementById('metric-like-text');
-    var metricShareText = document.getElementById('metric-share-text');
-    var metricBoxSaves = document.getElementById('metric-box-saves');
-
-    var btnInsertOverlay = document.getElementById('btn-insert-overlay');
-    var btnInsertGuides = document.getElementById('btn-insert-guides');
-    var btnGuidesText = document.getElementById('btn-guides-text');
-    var btnExportPng = document.getElementById('btn-export-png');
-    var btnCleanTimeline = document.getElementById('btn-clean-timeline');
-    var statusBox = document.getElementById('status-box');
-
-    // State
+    // ------------------------------------------------------------------ State
+    var DEFAULT_CAPTION = 'Bu eklenti @alptugdag tarafından yapılmıştır, destek için takip edebilirsin, kolay gelsin!';
     var state = {
         platform: 'reels',
         username: 'alptugdag',
         isVerified: true,
         showFollow: true,
-        caption: 'Bu eklenti @alptugdag tarafından yapılmıştır, destek için takip edebilirsin, kolay gelsin!',
+        caption: DEFAULT_CAPTION,
         audioName: 'alptugdag · Orijinal Ses',
         likesCount: '12.4K',
         commentsCount: '348',
         savesCount: '9.8K',
         sharesCount: '1.2K',
         showSafeZones: true,
-        showSubtitleZone: false,
         showMockUi: true,
-        overlayOpacity: 1.0,
+        showSubtitleZone: false,
+        thirds: false,
+        center: false,
+        feed45: false,
+        grid34: false,
+        square: false,
+        broadcast: false,
+        overlayOpacity: 1,
+        avatarDataUrl: 'assets/sample_avatar.png'
+    };
+    var PERSIST_KEYS = Object.keys(state);
+    var runtime = {
+        host: resolveBridge ? 'RESOLVE' : (csInterface ? 'PPRO' : (hasNative() ? 'RESOLVE' : 'WEB')),
+        seq: { ok: false, width: 1080, height: 1920, fps: 0, duration: 0, name: '' },
         avatarImage: null,
-        avatarDataUrl: 'assets/sample_avatar.png',
-        videoFrameImage: null,
-        seqWidth: 1080,
-        seqHeight: 1920,
-        hostApp: 'PPRO',
-        liveMirrorActive: true,
-        programMonitorLayerActive: true,
-        floatingOverlayVisible: false,
-        floatingOverlayEdit: false,
-        floatingOverlayRev: 1
+        monitorOn: false,
+        rev: Date.now() % 100000
     };
 
-    var STORAGE_STATE_KEY = 'alptuguide_v3_state';
-    var STORAGE_PRESETS_KEY = 'alptuguide_v3_presets';
+    var STORAGE_KEY = 'alptuguide_v32_state';
+    var PRESETS_KEY = 'alptuguide_v3_presets';
 
-    var renderRafId = null;
-    var syncOverlayTimer = null;
-    var statusTimer = null;
-    var isCapturingFrame = false;
-    var lastObservedPos = null;
-    var lastCapturedPos = null;
-    var offscreenExportCanvas = document.createElement('canvas');
-
-    var PLATFORM_META = {
-        reels: {
-            title: 'Instagram Reels',
-            guideDesc: 'Aktif: Instagram Reels (Meta 1:1 Doğrulanmış)',
-            btnGuide: 'Reels Kılavuzunu Timeline\'a Ekle',
-            followLabel: 'Takip Et Butonu',
-            followDesc: 'Profil yanında "Takip Et" butonunu gösterir',
-            audioLabel: 'Ses / Müzik Başlığı',
-            likeText: 'Beğeni',
-            shareText: 'Paylaşım',
-            showSaves: true,
-            specTitle: 'Instagram Reels (1080×1920):',
-            specText: 'Üst 269px · Alt 672px (440px UI + 110px Bar) · Sağ 146px · Sol 65px'
-        },
-        tiktok: {
-            title: 'TikTok',
-            guideDesc: 'Aktif: TikTok (Creative Center 1:1 Doğrulanmış)',
-            btnGuide: 'TikTok Kılavuzunu Timeline\'a Ekle',
-            followLabel: 'Profil (+) Takip Rozeti',
-            followDesc: 'Avatar altında kırmızı "+" takip rozetini gösterir',
-            audioLabel: 'TikTok Ses / Orijinal Ses',
-            likeText: 'Beğeni',
-            shareText: 'Paylaşım',
-            showSaves: true,
-            specTitle: 'TikTok (1080×1920):',
-            specText: 'Üst 252px · Alt 620px (490px UI + 162px Bar) · Sağ 184px · Sol 60px'
-        },
-        shorts: {
-            title: 'YouTube Shorts',
-            guideDesc: 'Aktif: YouTube Shorts (1:1 Doğrulanmış)',
-            btnGuide: 'Shorts Kılavuzunu Timeline\'a Ekle',
-            followLabel: 'Abone Ol Butonu',
-            followDesc: 'Kanal yanında "Abone ol" hap butonunu gösterir',
-            audioLabel: 'Shorts Ses / Müzik Başlığı',
-            likeText: 'Beğeni',
-            shareText: 'Remix',
-            showSaves: false,
-            specTitle: 'YouTube Shorts (1080×1920):',
-            specText: 'Üst 288px · Alt 672px (480px UI + 144px Bar) · Sağ 192px · Sol 48px'
-        },
-        all: {
-            title: 'Ortak Kılavuz (Tümü)',
-            guideDesc: 'Aktif: Reels + TikTok + Shorts Ortak Güvenli Alan',
-            btnGuide: 'Ortak Kılavuzu Timeline\'a Ekle',
-            followLabel: 'Takip Et / Abone Ol',
-            followDesc: 'Profil yanında takip butonunu gösterir',
-            audioLabel: 'Ses / Müzik Başlığı',
-            likeText: 'Beğeni',
-            shareText: 'Paylaşım',
-            showSaves: true,
-            specTitle: 'Ortak Kesişim (1080×1920):',
-            specText: 'Üst 288px · Alt 672px (490px UI) · Sağ 192px · Sol 65px → 823×960px Net'
-        }
+    var PLATFORM = {
+        reels:  { name: 'Instagram Reels', limit: 180, follow: 'Takip et',  like: 'Beğeni', share: 'Paylaş', saves: true },
+        tiktok: { name: 'TikTok',          limit: 600, follow: '+ Takip',   like: 'Beğeni', share: 'Paylaş', saves: true },
+        shorts: { name: 'YouTube Shorts',  limit: 180, follow: 'Abone ol',  like: 'Beğeni', share: 'Remix',  saves: false },
+        all:    { name: 'Ortak (3 platform)', limit: 180, follow: 'Takip et', like: 'Beğeni', share: 'Paylaş', saves: true }
     };
 
-    function showStatus(msg, type) {
-        if (!statusBox) return;
-        statusBox.textContent = msg;
-        statusBox.className = 'status-msg ' + (type === 'error' ? 'error' : 'success');
-        if (statusTimer) clearTimeout(statusTimer);
-        statusTimer = setTimeout(function () {
-            statusBox.className = 'status-msg';
-        }, 3800);
+    // ------------------------------------------------------------------ Toast
+    var toastEl = $('toast'), toastTimer = null;
+    function toast(msg, isError) {
+        toastEl.textContent = msg;
+        toastEl.className = 'toast show' + (isError ? ' error' : '');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { toastEl.className = 'toast'; }, 3200);
     }
 
-    function parseScriptCall(script) {
-        var s = String(script || '').trim();
-        var m = s.match(/^([a-zA-Z0-9_]+)\((.*)\)$/);
-        if (!m) return { cmd: s, args: [] };
-        var cmd = m[1];
-        var rawArgs = m[2].trim();
-        if (!rawArgs) return { cmd: cmd, args: [] };
-        try {
-            var parsedArgs = JSON.parse('[' + rawArgs + ']');
-            return { cmd: cmd, args: parsedArgs };
-        } catch (e) {
-            return { cmd: cmd, args: [rawArgs.replace(/^"|"$/g, '')] };
-        }
-    }
-
-    function updateHostChips(host) {
-        var h = (host || state.hostApp || 'PPRO').toUpperCase();
-        var chipPpro = document.getElementById('chip-ppro');
-        var chipAeft = document.getElementById('chip-aeft');
-        var chipResolve = document.getElementById('chip-resolve');
-        var chipMacos = document.getElementById('chip-macos');
-        if (chipPpro) chipPpro.classList.toggle('active', h === 'PPRO');
-        if (chipAeft) chipAeft.classList.toggle('active', h === 'AEFT');
-        if (chipResolve) chipResolve.classList.toggle('active', h === 'RESOLVE');
-        if (chipMacos) chipMacos.classList.toggle('active', state.floatingOverlayVisible || h === 'MACOS');
-    }
-
-    function evalExtendScript(script, callback) {
-        var parsed = parseScriptCall(script);
-        if (window.AlptuguideResolveBridge && typeof window.AlptuguideResolveBridge.evalCommand === 'function') {
-            var res = window.AlptuguideResolveBridge.evalCommand(parsed.cmd, parsed.args);
-            if (callback) setTimeout(function () { callback(res); }, 0);
-            return;
-        }
-        if (csInterface) {
-            csInterface.evalScript(script, function (res) {
-                if (callback) callback(res);
-            });
-            return;
-        }
-        if (hasNativeWebKitBridge()) {
-            sendNativeMessage({
-                action: 'hostCommand',
-                cmd: parsed.cmd,
-                args: parsed.args
-            }, callback);
-            return;
-        }
-        if (callback) callback('');
-    }
-
-    function getSharedDir() {
-        if (!os || !path) return '/tmp';
-        return path.join(os.homedir(), 'Library', 'Application Support', 'Alptuguide');
-    }
-
-    function ensureDir(dirPath) {
-        if (!fs) return;
-        try {
-            if (!fs.existsSync(dirPath)) {
-                fs.mkdirSync(dirPath, { recursive: true });
-            }
-        } catch (e) {}
-    }
-
-    function buildRenderState(includeVideoFrame, targetWidth, targetHeight) {
+    // ------------------------------------------------------------------ Rendering
+    function renderState(w, h) {
         return {
             platform: state.platform,
             username: state.username,
@@ -317,911 +142,544 @@
             showSubtitleZone: state.showSubtitleZone,
             showMockUi: state.showMockUi,
             overlayOpacity: state.overlayOpacity,
-            avatarImage: state.avatarImage,
-            videoFrameImage: includeVideoFrame ? state.videoFrameImage : null,
-            targetWidth: targetWidth || 1080,
-            targetHeight: targetHeight || 1920
+            avatarImage: runtime.avatarImage,
+            videoFrameImage: null,
+            targetWidth: w,
+            targetHeight: h
         };
     }
 
-    function renderToCanvas(targetCanvas, includeVideoFrame, width, height) {
-        var w = width || 1080;
-        var h = height || 1920;
-        if (targetCanvas.width !== w) targetCanvas.width = w;
-        if (targetCanvas.height !== h) targetCanvas.height = h;
-
-        var rState = buildRenderState(includeVideoFrame, w, h);
-        ReelsRenderer.render(targetCanvas, rState);
+    function compose(canvas, w, h, mode) {
+        if (canvas.width !== w) canvas.width = w;
+        if (canvas.height !== h) canvas.height = h;
+        var ctx = canvas.getContext('2d');
+        if (mode === 'guides_only') {
+            ctx.clearRect(0, 0, w, h);
+            if (window.AlptuguideSafeZones) {
+                AlptuguideSafeZones.draw(ctx, state.platform, w, h, { opacity: state.overlayOpacity, showLabels: true });
+            }
+        } else {
+            ReelsRenderer.render(canvas, renderState(w, h));
+        }
+        if (window.AlptuguideCompGuides) {
+            AlptuguideCompGuides.draw(ctx, w, h, {
+                opacity: state.overlayOpacity,
+                thirds: state.thirds, center: state.center, broadcast: state.broadcast,
+                feed45: state.feed45, grid34: state.grid34, square: state.square
+            });
+        }
     }
 
-    function scheduleRender(syncMonitorAndOverlay) {
-        if (renderRafId) cancelAnimationFrame(renderRafId);
-        renderRafId = requestAnimationFrame(function () {
-            renderRafId = null;
-            renderToCanvas(canvas, true, 1080, 1920);
-            if (canvasContainer) {
-                if (state.videoFrameImage) {
-                    canvasContainer.classList.remove('checker-bg');
-                } else {
-                    canvasContainer.classList.add('checker-bg');
-                }
-            }
-            if (syncMonitorAndOverlay !== false) {
-                scheduleExternalSync();
+    // Output size that matches the sequence aspect, longest edge capped (fast to encode, sharp on screen)
+    function outputSize(maxEdge) {
+        var sw = runtime.seq.width || 1080, sh = runtime.seq.height || 1920;
+        var k = (maxEdge || 1920) / Math.max(sw, sh);
+        return { w: Math.max(2, Math.round(sw * k)), h: Math.max(2, Math.round(sh * k)) };
+    }
+
+    var canvas = $('render-canvas');
+    var stage = $('preview-stage');
+    var rafId = 0;
+    function renderPreview() {
+        if (!stage || stage.offsetParent === null) return; // hidden (short panel) -> skip work
+        var aspect = (runtime.seq.width || 1080) / (runtime.seq.height || 1920);
+        var sw = stage.clientWidth - 8, sh = stage.clientHeight - 8;
+        if (sw <= 0 || sh <= 0) return;
+        var cssW = Math.min(sw, sh * aspect), cssH = cssW / aspect;
+        var dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.style.width = Math.round(cssW) + 'px';
+        canvas.style.height = Math.round(cssH) + 'px';
+        compose(canvas, Math.round(cssW * dpr), Math.round(cssH * dpr), 'current');
+    }
+
+    function scheduleRender(changed) {
+        if (!rafId) {
+            rafId = requestAnimationFrame(function () { rafId = 0; renderPreview(); });
+        }
+        if (changed !== false) {
+            schedulePersist();
+            if (runtime.monitorOn) schedulePublish();
+        }
+    }
+
+    // ------------------------------------------------------------------ Persistence
+    var persistTimer = 0;
+    function schedulePersist() {
+        clearTimeout(persistTimer);
+        persistTimer = setTimeout(function () {
+            var out = {};
+            PERSIST_KEYS.forEach(function (k) { out[k] = state[k]; });
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(out)); } catch (e) {}
+        }, 300);
+    }
+    function loadPersisted() {
+        try {
+            var raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('alptuguide_v3_state');
+            if (!raw) return;
+            var p = JSON.parse(raw);
+            PERSIST_KEYS.forEach(function (k) {
+                if (p && typeof p[k] === typeof state[k]) state[k] = p[k];
+            });
+            if (!PLATFORM[state.platform]) state.platform = 'reels';
+        } catch (e) {}
+    }
+
+    // ------------------------------------------------------------------ Monitor overlay
+    function ensureShareDir() {
+        if (!fs || !SHARE_DIR) return false;
+        try { if (!fs.existsSync(SHARE_DIR)) fs.mkdirSync(SHARE_DIR, { recursive: true }); return true; }
+        catch (e) { return false; }
+    }
+
+    var offscreen = document.createElement('canvas');
+    function overlayPng(mode, maxEdge) {
+        var s = outputSize(maxEdge);
+        compose(offscreen, s.w, s.h, mode || 'current');
+        return offscreen.toDataURL('image/png');
+    }
+    function writePng(filePath, dataUrl) {
+        fs.writeFileSync(filePath, Buffer.from(dataUrl.slice(dataUrl.indexOf(',') + 1), 'base64'));
+    }
+
+    function overlayStatePayload(edit) {
+        runtime.rev++;
+        return {
+            visible: runtime.monitorOn,
+            edit: !!edit,
+            host: runtime.host,
+            platform: state.platform,
+            aspect: (runtime.seq.width || 1080) / (runtime.seq.height || 1920),
+            rev: runtime.rev,
+            quit: false
+        };
+    }
+
+    var publishTimer = 0;
+    function schedulePublish() {
+        clearTimeout(publishTimer);
+        publishTimer = setTimeout(function () { publish(false); }, runtime.host === 'AEFT' ? 450 : 180);
+    }
+
+    // Pushes the current guide to wherever the monitor preview lives.
+    function publish(edit, done) {
+        if (runtime.host === 'AEFT') {
+            if (!ensureShareDir()) { toast('Dosya erişimi yok.', true); return; }
+            var aePath = path.join(SHARE_DIR, 'Alptuguide_AE_Guide.png');
+            if (runtime.monitorOn) writePng(aePath, overlayPng('current', Math.max(runtime.seq.width, runtime.seq.height)));
+            callHost('setCompGuide', [aePath, runtime.monitorOn], function (res) {
+                if (res !== 'OK' && res) toast(res, true);
+                if (done) done(res === 'OK');
+            });
+            return;
+        }
+
+        if (hasNative() && !fs) {
+            var st = overlayStatePayload(edit);
+            sendNative({ action: 'publishOverlay', pngBase64: runtime.monitorOn ? overlayPng('current', 1920).split(',')[1] : '', state: st });
+            sendNative({ action: 'toggleOverlay', visible: runtime.monitorOn, edit: !!edit });
+            if (done) done(true);
+            return;
+        }
+
+        if (!ensureShareDir()) { toast('Overlay yalnızca macOS üzerinde çalışır.', true); return; }
+        try {
+            if (runtime.monitorOn) writePng(path.join(SHARE_DIR, 'overlay.png'), overlayPng('current', 1920));
+            fs.writeFileSync(path.join(SHARE_DIR, 'state.json'), JSON.stringify(overlayStatePayload(edit)));
+        } catch (e) { toast('Overlay yazılamadı: ' + e.message, true); return; }
+        if (runtime.monitorOn) launchOverlayApp();
+        if (done) done(true);
+    }
+
+    function launchOverlayApp() {
+        if (!childProcess || !fs) return;
+        var app = null;
+        for (var i = 0; i < OVERLAY_APP_CANDIDATES.length; i++) {
+            if (fs.existsSync(OVERLAY_APP_CANDIDATES[i])) { app = OVERLAY_APP_CANDIDATES[i]; break; }
+        }
+        if (!app) { toast('Alptuguide.app bulunamadı — install.sh çalıştırın.', true); return; }
+        // Only launch when not running; "-g" keeps the editor app in front.
+        childProcess.exec('/usr/bin/pgrep -x AlptuguideOverlay', function (err) {
+            if (err) childProcess.exec('/usr/bin/open -g "' + app + '"', function () {});
+        });
+    }
+
+    function setMonitor(on, edit) {
+        runtime.monitorOn = on;
+        updateMonitorButton();
+        publish(edit, function (ok) {
+            if (!ok) return;
+            if (runtime.host === 'AEFT') {
+                toast(on ? 'Kılavuz Composition\'a Guide Layer olarak eklendi (render\'a girmez).' : 'Guide Layer kaldırıldı.');
+            } else if (edit) {
+                toast('Hizalama: overlay\'i video karesine oturtun, Enter ile kilitleyin.');
+            } else {
+                toast(on ? 'Program Monitöründe gösteriliyor (render\'a girmez).' : 'Monitör kılavuzu gizlendi.');
             }
         });
     }
 
-    function scheduleExternalSync() {
-        if (syncOverlayTimer) clearTimeout(syncOverlayTimer);
-        syncOverlayTimer = setTimeout(function () {
-            syncOverlayTimer = null;
-            saveStateToStorage();
-            publishToFloatingOverlay();
-        }, 120);
+    function updateMonitorButton() {
+        var btn = $('btn-monitor');
+        btn.classList.toggle('on', runtime.monitorOn);
+        btn.setAttribute('aria-pressed', String(runtime.monitorOn));
+        btn.querySelector('use').setAttribute('href', runtime.monitorOn ? '#i-eye' : '#i-eye-off');
+        var target = runtime.host === 'AEFT' ? 'Composition\'da' : 'Program Monitöründe';
+        $('monitor-title').textContent = runtime.monitorOn ? target + ' Gösteriliyor' : target + ' Göster';
+        $('monitor-sub').textContent = runtime.host === 'AEFT'
+            ? 'Guide Layer · render\'a girmez'
+            : 'Render\'a girmez · ⌃⌥G aç/kapat';
+        $('btn-align').style.display = runtime.host === 'AEFT' ? 'none' : '';
     }
 
-    function dataUrlToBuffer(dataUrl) {
-        var idx = dataUrl.indexOf(',');
-        var b64 = idx >= 0 ? dataUrl.slice(idx + 1) : dataUrl;
-        return Buffer.from(b64, 'base64');
-    }
-
-    function exportTransparentPngDataUrl(mode, width, height) {
-        var w = width || state.seqWidth || 1080;
-        var h = height || state.seqHeight || 1920;
-        offscreenExportCanvas.width = w;
-        offscreenExportCanvas.height = h;
-        var ctx = offscreenExportCanvas.getContext('2d');
-        ctx.clearRect(0, 0, w, h);
-
-        if (mode === 'guides_only') {
-            if (typeof AlptuguideSafeZones !== 'undefined') {
-                AlptuguideSafeZones.draw(ctx, state.platform, w, h, {
-                    opacity: state.overlayOpacity,
-                    showGrid: true,
-                    showLabels: true,
-                    showCenterCross: true
-                });
-            }
-        } else {
-            renderToCanvas(offscreenExportCanvas, false, w, h);
-        }
-
-        return offscreenExportCanvas.toDataURL('image/png');
-    }
-
-    function exportTransparentPngBuffer(mode, width, height) {
-        var dataUrl = exportTransparentPngDataUrl(mode, width, height);
-        return dataUrlToBuffer(dataUrl);
-    }
-
-    function publishToFloatingOverlay() {
-        if (hasNativeWebKitBridge() && !fs) {
-            state.floatingOverlayRev++;
-            var dataUrl = exportTransparentPngDataUrl('current', 1080, 1920);
-            sendNativeMessage({
-                action: 'publishOverlay',
-                pngBase64: dataUrl.split(',')[1] || '',
-                state: {
-                    visible: state.floatingOverlayVisible,
-                    edit: state.floatingOverlayEdit,
-                    host: state.hostApp || 'RESOLVE',
-                    platform: state.platform,
-                    rev: state.floatingOverlayRev,
-                    quit: false
-                }
-            });
-            return;
-        }
-        if (!fs || !path) return;
+    // The overlay app can be toggled with ⌃⌥G; reflect that when the panel regains focus.
+    function syncOverlayStatus() {
+        if (runtime.host === 'AEFT' || !fs || !SHARE_DIR) return;
         try {
-            var shareDir = getSharedDir();
-            ensureDir(shareDir);
-            var overlayPngPath = path.join(shareDir, 'overlay.png');
-            var stateJsonPath = path.join(shareDir, 'state.json');
-
-            var buf = exportTransparentPngBuffer('current', 1080, 1920);
-            fs.writeFile(overlayPngPath, buf, function () {});
-
-            state.floatingOverlayRev++;
-            var payload = JSON.stringify({
-                visible: state.floatingOverlayVisible,
-                edit: state.floatingOverlayEdit,
-                host: state.hostApp || 'PPRO',
-                platform: state.platform,
-                rev: state.floatingOverlayRev,
-                quit: false
-            });
-            fs.writeFile(stateJsonPath, payload, 'utf8', function () {});
+            var p = path.join(SHARE_DIR, 'overlay_status.json');
+            if (!fs.existsSync(p)) return;
+            var s = JSON.parse(fs.readFileSync(p, 'utf8'));
+            if (typeof s.visible === 'boolean' && s.visible !== runtime.monitorOn) {
+                runtime.monitorOn = s.visible;
+                updateMonitorButton();
+            }
         } catch (e) {}
     }
 
-    function launchFloatingOverlayApp(enableEditMode) {
-        if (enableEditMode) {
-            state.floatingOverlayVisible = true;
-            state.floatingOverlayEdit = true;
-        } else {
-            state.floatingOverlayVisible = !state.floatingOverlayVisible;
-            if (!state.floatingOverlayVisible) {
-                state.floatingOverlayEdit = false;
-            }
-        }
+    // ------------------------------------------------------------------ Sequence info
+    function fmtDur(sec) {
+        sec = Math.max(0, Math.round(sec || 0));
+        var m = Math.floor(sec / 60), s = sec % 60;
+        return m + ':' + (s < 10 ? '0' : '') + s;
+    }
 
-        if (btnLaunchOverlay && overlayBtnText) {
-            btnLaunchOverlay.classList.toggle('active', state.floatingOverlayVisible);
-            overlayBtnText.textContent = state.floatingOverlayVisible ? 'Ekran Üstü Overlay: Açık' : 'Ekran Üstü Overlay Aç';
-        }
-        updateHostChips(state.hostApp);
-        publishToFloatingOverlay();
-
-        if (hasNativeWebKitBridge() && !childProcess) {
-            sendNativeMessage({
-                action: 'toggleOverlay',
-                visible: state.floatingOverlayVisible,
-                edit: state.floatingOverlayEdit
-            });
-            if (enableEditMode) {
-                showStatus('Overlay hizalama modu açıldı (Kilitlemek için Enter\'a basın).', 'success');
-            } else if (state.floatingOverlayVisible) {
-                showStatus('Ekran üstü şeffaf Overlay aktif (Render\'a girmez).', 'success');
-            } else {
-                showStatus('Ekran üstü Overlay gizlendi.', 'success');
-            }
+    function updateSeqChip() {
+        var chip = $('seq-chip'), text = $('seq-text'), sq = runtime.seq;
+        chip.classList.remove('ok', 'warn', 'bad');
+        if (!sq.ok) {
+            text.textContent = sq.message || 'Sekans yok';
+            chip.title = 'Bir sekans / composition açın, sonra tıklayın.';
             return;
         }
+        var meta = PLATFORM[state.platform];
+        var aspect = sq.width / sq.height;
+        var vertical = Math.abs(aspect - 9 / 16) < 0.01;
+        var over = sq.duration > meta.limit;
+        var parts = [sq.width + '×' + sq.height];
+        if (sq.fps) parts.push((Math.round(sq.fps * 100) / 100) + ' fps');
+        if (sq.duration) parts.push(fmtDur(sq.duration));
+        text.textContent = parts.join(' · ');
+        var tips = [sq.name || ''];
+        if (!vertical) tips.push('⚠ Sekans 9:16 değil — "9:16 Kopya" ile dikey sürüm oluşturabilirsiniz.');
+        if (over) tips.push('⛔ ' + meta.name + ' limiti ' + fmtDur(meta.limit) + ' — süre aşılıyor.');
+        if (vertical && !over) tips.push('✓ ' + meta.name + ' için uygun (limit ' + fmtDur(meta.limit) + ').');
+        chip.title = tips.join('\n');
+        chip.classList.add(over ? 'bad' : (vertical ? 'ok' : 'warn'));
+    }
 
-        if (!childProcess || !path || !os) {
-            showStatus('Masaüstü Overlay yalnızca macOS üzerinde desteklenir.', 'error');
-            return;
+    var lastSeqRefresh = 0;
+    function refreshSequence(force) {
+        var now = Date.now();
+        if (!force && now - lastSeqRefresh < 1200) return;
+        lastSeqRefresh = now;
+        callHost('getSequenceDetails', [], function (res) { applySequence(res); });
+    }
+
+    function applySequence(res) {
+        var d = null;
+        try { d = typeof res === 'string' ? JSON.parse(res) : res; } catch (e) {}
+        if (!d) return;
+        if (d.host && d.host !== runtime.host) {
+            runtime.host = d.host;
+            updateMonitorButton();
+            updateToolAvailability();
         }
-        var shareDir = getSharedDir();
-        ensureDir(shareDir);
+        var prev = runtime.seq;
+        runtime.seq = {
+            ok: !!d.ok,
+            width: Number(d.width) || prev.width || 1080,
+            height: Number(d.height) || prev.height || 1920,
+            fps: Number(d.fps) || 0,
+            duration: Number(d.duration) || 0,
+            name: d.name || '',
+            message: d.message || ''
+        };
+        updateSeqChip();
+        updateSpec();
+        var sizeChanged = prev.width !== runtime.seq.width || prev.height !== runtime.seq.height;
+        if (sizeChanged) scheduleRender(false);
+        if (sizeChanged && runtime.monitorOn) schedulePublish();
+    }
 
-        var appCandidate1 = path.join(shareDir, 'Alptuguide Overlay.app');
-        var appCandidate2 = '/Applications/Alptuguide.app';
-        var targetApp = (fs && fs.existsSync(appCandidate2)) ? appCandidate2 : appCandidate1;
-
-        if (fs && fs.existsSync(targetApp)) {
-            childProcess.exec('open -a "' + targetApp + '"', function () {});
-            if (enableEditMode) {
-                showStatus('Overlay hizalama modu açıldı (Kilitlemek için Enter\'a basın).', 'success');
-            } else if (state.floatingOverlayVisible) {
-                showStatus('Ekran üstü şeffaf Overlay aktif (Render\'a girmez).', 'success');
-            } else {
-                showStatus('Ekran üstü Overlay gizlendi.', 'success');
-            }
-        } else {
-            showStatus('Alptuguide Overlay.app bulunamadı.', 'error');
-        }
+    // ------------------------------------------------------------------ UI sync
+    function updateSpec() {
+        var el = $('spec-text');
+        if (!el || !window.AlptuguideSafeZones) return;
+        var z = AlptuguideSafeZones.getScaledSpec(state.platform, runtime.seq.width, runtime.seq.height);
+        el.textContent = 'Üst ' + z.top + ' · Alt ' + z.bottom + ' (' + z.bottomOrganic + ' UI) · Sol ' + z.left + ' · Sağ ' + z.right + ' px';
     }
 
     function updatePlatformUI() {
-        var meta = PLATFORM_META[state.platform] || PLATFORM_META.reels;
-
-        for (var i = 0; i < tabButtons.length; i++) {
-            var btn = tabButtons[i];
-            var p = btn.getAttribute('data-platform');
-            btn.classList.toggle('active', p === state.platform);
-        }
-
-        if (previewPlatformTitle) previewPlatformTitle.textContent = meta.title;
-        if (guideActiveDesc) guideActiveDesc.textContent = meta.guideDesc;
-        if (btnGuidesText) btnGuidesText.textContent = meta.btnGuide;
-        if (followToggleLabel) followToggleLabel.textContent = meta.followLabel;
-        if (followToggleDesc) followToggleDesc.textContent = meta.followDesc;
-        if (audioInputLabel) audioInputLabel.textContent = meta.audioLabel;
-        if (metricLikeText) metricLikeText.textContent = meta.likeText;
-        if (metricShareText) metricShareText.textContent = meta.shareText;
-        if (metricBoxSaves) {
-            metricBoxSaves.style.display = meta.showSaves ? '' : 'none';
-        }
-
-        if (specPlatformName && specMetricsText) {
-            var scaleX = (state.seqWidth || 1080) / 1080;
-            var scaleY = (state.seqHeight || 1920) / 1920;
-            if (typeof AlptuguideSafeZones !== 'undefined' && (scaleX !== 1 || scaleY !== 1)) {
-                var z = AlptuguideSafeZones.getScaledSpec(state.platform, state.seqWidth, state.seqHeight);
-                specPlatformName.textContent = z.label + ' (' + state.seqWidth + '×' + state.seqHeight + '):';
-                specMetricsText.textContent = 'Üst ' + z.top + 'px · Alt ' + z.bottom + 'px (' + z.bottomOrganic + 'px UI) · Sağ ' + z.right + 'px · Sol ' + z.left + 'px';
-            } else {
-                specPlatformName.textContent = meta.specTitle;
-                specMetricsText.textContent = meta.specText;
-            }
-        }
+        var meta = PLATFORM[state.platform];
+        var tabs = document.querySelectorAll('.seg-btn');
+        for (var i = 0; i < tabs.length; i++) tabs[i].classList.toggle('active', tabs[i].getAttribute('data-platform') === state.platform);
+        $('chip-follow').textContent = meta.follow;
+        $('metric-like-text').textContent = meta.like;
+        $('metric-share-text').textContent = meta.share;
+        $('metric-box-saves').style.display = meta.saves ? '' : 'none';
+        updateSpec();
+        updateSeqChip();
     }
 
-    function refreshSequenceMetadata(callback) {
-        evalExtendScript('getSequenceDetails()', function (res) {
-            try {
-                var data = JSON.parse(res);
-                if (data && data.ok) {
-                    state.seqWidth = Number(data.width) || 1080;
-                    state.seqHeight = Number(data.height) || 1920;
-                    state.hostApp = data.host || 'PPRO';
-                    if (seqAspectBadge) {
-                        seqAspectBadge.textContent = data.is916 ? '9:16 Dikey' : (data.is169 ? '16:9 Yatay' : 'Özel Oran');
-                    }
-                    if (seqDimText) {
-                        seqDimText.textContent = state.seqWidth + ' × ' + state.seqHeight + ' px · ' + (data.name || 'Aktif Sekans');
-                    }
-                    updateHostChips(state.hostApp);
-                    updatePlatformUI();
-                } else if (data && data.message) {
-                    if (data.host) {
-                        state.hostApp = data.host;
-                        updateHostChips(state.hostApp);
-                    }
-                    if (seqDimText) seqDimText.textContent = data.message;
-                }
-            } catch (e) {}
-            if (callback) callback();
-        });
+    function syncChips() {
+        var chips = document.querySelectorAll('.chip[data-key]');
+        for (var i = 0; i < chips.length; i++) chips[i].classList.toggle('on', !!state[chips[i].getAttribute('data-key')]);
     }
 
-    // Asynchronous, non-blocking PNG completion waiter (0% main-thread block!)
-    function waitForPngAndLoad(candidates, maxAttempts, delayMs, onLoaded) {
-        if (!fs || !candidates || candidates.length === 0) {
-            onLoaded(false);
-            return;
-        }
-        var attempt = 0;
-
-        function checkNext() {
-            attempt++;
-            var foundPath = null;
-
-            for (var i = 0; i < candidates.length; i++) {
-                var p = candidates[i];
-                try {
-                    if (fs.existsSync(p)) {
-                        var st = fs.statSync(p);
-                        if (st && st.size > 512) {
-                            foundPath = p;
-                            break;
-                        }
-                    }
-                } catch (e) {}
-            }
-
-            if (foundPath) {
-                fs.readFile(foundPath, function (err, buf) {
-                    if (!err && buf && buf.length > 512) {
-                        // Verify PNG IEND marker at tail
-                        var tail = buf.slice(buf.length - 8, buf.length - 4).toString('ascii');
-                        if (tail === 'IEND' || attempt >= maxAttempts) {
-                            fs.unlink(foundPath, function () {});
-                            var b64 = buf.toString('base64');
-                            var img = new Image();
-                            img.onload = function () {
-                                state.videoFrameImage = img;
-                                scheduleRender(false);
-                                onLoaded(true);
-                            };
-                            img.onerror = function () {
-                                onLoaded(false);
-                            };
-                            img.src = 'data:image/png;base64,' + b64;
-                            return;
-                        }
-                    }
-                    if (attempt < maxAttempts) {
-                        setTimeout(checkNext, delayMs);
-                    } else {
-                        if (foundPath) fs.unlink(foundPath, function () {});
-                        onLoaded(false);
-                    }
-                });
-            } else if (attempt < maxAttempts) {
-                setTimeout(checkNext, delayMs);
-            } else {
-                onLoaded(false);
-            }
-        }
-
-        setTimeout(checkNext, 25);
-    }
-
-    function captureLiveFrameNow(forceManual) {
-        if (isCapturingFrame) return;
-        if (!forceManual && (!state.liveMirrorActive || document.hidden)) return;
-
-        isCapturingFrame = true;
-        if (liveBadgeText) liveBadgeText.textContent = 'Monitör: Senkron';
-
-        evalExtendScript('captureFrameToTempPath()', function (res) {
-            try {
-                var data = JSON.parse(res);
-                if (data && data.ok) {
-                    if (data.base64) {
-                        var imgB64 = new Image();
-                        imgB64.onload = function () {
-                            state.videoFrameImage = imgB64;
-                            scheduleRender(false);
-                            isCapturingFrame = false;
-                            if (liveBadgeText) liveBadgeText.textContent = 'Monitör: Canlı';
-                        };
-                        imgB64.onerror = function () {
-                            isCapturingFrame = false;
-                            if (liveBadgeText) liveBadgeText.textContent = 'Monitör: Hazır';
-                        };
-                        imgB64.src = 'data:image/png;base64,' + data.base64;
-                        return;
-                    }
-                    var cands = data.candidates || (data.path ? [data.path] : []);
-                    waitForPngAndLoad(cands, 22, 35, function (ok) {
-                        isCapturingFrame = false;
-                        if (liveBadgeText) {
-                            liveBadgeText.textContent = ok ? 'Monitör: Canlı' : 'Monitör: Hazır';
-                        }
-                    });
-                    return;
-                }
-            } catch (e) {}
-            isCapturingFrame = false;
-            if (liveBadgeText) liveBadgeText.textContent = 'Monitör: Hazır';
-        });
-    }
-
-    // Smart Playhead Settle Watcher:
-    // Never interrupts Premiere Pro / After Effects while the editor is actively scrubbing or playing!
-    // Only captures a frame after the playhead has come to rest at a new position.
-    function pollPlayheadSettle() {
-        if (!state.liveMirrorActive || document.hidden || isCapturingFrame) return;
-
-        evalExtendScript('getPlayheadState()', function (res) {
-            if (!res) return;
-            try {
-                var data = JSON.parse(res);
-                if (!data || !data.ok) return;
-
-                if (data.width && data.height && (data.width !== state.seqWidth || data.height !== state.seqHeight)) {
-                    state.seqWidth = Number(data.width) || 1080;
-                    state.seqHeight = Number(data.height) || 1920;
-                    state.hostApp = data.host || state.hostApp;
-                    updatePlatformUI();
-                }
-
-                var posKey = String(data.ticks !== undefined ? data.ticks : data.time);
-                if (posKey === lastObservedPos && posKey !== lastCapturedPos) {
-                    // Playhead has settled at a new position -> safe to capture frame without stutter!
-                    lastCapturedPos = posKey;
-                    captureLiveFrameNow(false);
-                }
-                lastObservedPos = posKey;
-            } catch (e) {}
-        });
-    }
-
-    function syncProgramMonitorLayer() {
-        refreshSequenceMetadata(function () {
-            if (hasNativeWebKitBridge() && !fs) {
-                var dataUrl = exportTransparentPngDataUrl('current', state.seqWidth, state.seqHeight);
-                sendNativeMessage({
-                    action: 'insertLayer',
-                    fileName: 'Alptuguide_Live_Preview.png',
-                    displayName: 'Alptuguide Live Preview',
-                    pngBase64: dataUrl.split(',')[1] || '',
-                    isLivePreview: true
-                }, function (res) {
-                    if (res === 'OK') {
-                        showStatus('Monitör ve Sekans senkronize edildi.', 'success');
-                    } else if (res) {
-                        showStatus(res, 'error');
-                    }
-                    captureLiveFrameNow(true);
-                });
-                return;
-            }
-            if (!fs || !path) return;
-            var shareDir = getSharedDir();
-            ensureDir(shareDir);
-            var liveFile = path.join(shareDir, 'Alptuguide_Live_Preview.png');
-            try {
-                var buf = exportTransparentPngBuffer('current', state.seqWidth, state.seqHeight);
-                fs.writeFileSync(liveFile, buf);
-                var escaped = liveFile.replace(/\\/g, '/');
-                evalExtendScript('initOrUpdateProgramMonitor("' + escaped + '")', function (res) {
-                    if (res === 'OK') {
-                        showStatus('Program Monitörü ve Sekans senkronize edildi.', 'success');
-                    } else if (res) {
-                        showStatus(res, 'error');
-                    }
-                    captureLiveFrameNow(true);
-                });
-            } catch (e) {
-                showStatus('Senkronizasyon hatası: ' + e.message, 'error');
-            }
-        });
-    }
-
-    function insertLayerToTimeline(mode) {
-        refreshSequenceMetadata(function () {
-            var suffix = (mode === 'guides_only') ? ('Guides_' + state.platform.toUpperCase()) : ('Overlay_' + state.platform.toUpperCase());
-            var fileName = 'Alptuguide_' + suffix + '_' + state.seqWidth + 'x' + state.seqHeight + '.png';
-            var label = (mode === 'guides_only')
-                ? ('Alptuguide 1:1 Kılavuz (' + state.platform.toUpperCase() + ')')
-                : ('Alptuguide Overlay (' + state.platform.toUpperCase() + ')');
-
-            if (hasNativeWebKitBridge() && !fs) {
-                var dataUrl = exportTransparentPngDataUrl(mode, state.seqWidth, state.seqHeight);
-                sendNativeMessage({
-                    action: 'insertLayer',
-                    fileName: fileName,
-                    displayName: label,
-                    pngBase64: dataUrl.split(',')[1] || '',
-                    isLivePreview: false
-                }, function (res) {
-                    if (res === 'OK') {
-                        showStatus(label + ' timeline\'a eklendi (' + state.seqWidth + '×' + state.seqHeight + ').', 'success');
-                    } else {
-                        showStatus(res || 'Timeline\'a eklenemedi.', 'error');
-                    }
-                });
-                return;
-            }
-
-            if (!fs || !path) return;
-            var shareDir = getSharedDir();
-            ensureDir(shareDir);
-            var outPath = path.join(shareDir, fileName);
-
-            try {
-                var buf = exportTransparentPngBuffer(mode, state.seqWidth, state.seqHeight);
-                fs.writeFileSync(outPath, buf);
-                var escaped = outPath.replace(/\\/g, '/');
-
-                evalExtendScript('insertClipPermanent("' + escaped + '", "' + label + '")', function (res) {
-                    if (res === 'OK') {
-                        showStatus(label + ' timeline\'a eklendi (' + state.seqWidth + '×' + state.seqHeight + ').', 'success');
-                    } else {
-                        showStatus(res || 'Timeline\'a eklenemedi.', 'error');
-                    }
-                });
-            } catch (e) {
-                showStatus('Dosya oluşturma hatası: ' + e.message, 'error');
-            }
-        });
-    }
-
-    function exportPngToDesktop() {
-        var fileName = 'Alptuguide_' + state.platform + '_' + state.seqWidth + 'x' + state.seqHeight + '_' + Date.now() + '.png';
-        if (hasNativeWebKitBridge() && !fs) {
-            var dataUrl = exportTransparentPngDataUrl('current', state.seqWidth, state.seqHeight);
-            sendNativeMessage({
-                action: 'exportDesktop',
-                fileName: fileName,
-                pngBase64: dataUrl.split(',')[1] || ''
-            }, function (res) {
-                if (res === 'OK') {
-                    showStatus('Masaüstüne kaydedildi: ' + fileName, 'success');
-                } else {
-                    showStatus(res || 'PNG kaydetme hatası.', 'error');
-                }
-            });
-            return;
-        }
-        if (!fs || !path || !os) return;
-        try {
-            var desktopDir = path.join(os.homedir(), 'Desktop');
-            var outPath = path.join(desktopDir, fileName);
-            var buf = exportTransparentPngBuffer('current', state.seqWidth, state.seqHeight);
-            fs.writeFileSync(outPath, buf);
-            showStatus('Masaüstüne kaydedildi: ' + fileName, 'success');
-        } catch (e) {
-            showStatus('PNG kaydetme hatası: ' + e.message, 'error');
-        }
-    }
-
-    function cleanTimelineLayers() {
-        evalExtendScript('cleanAllPreviewClips()', function (res) {
-            if (res && res.indexOf('OK:') === 0) {
-                var count = res.split(':')[1] || '0';
-                showStatus('Timeline temizlendi (' + count + ' Alptuguide katmanı kaldırıldı).', 'success');
-            } else {
-                showStatus('Temizlenecek aktif sekans/katman bulunamadı.', 'error');
-            }
-        });
-    }
-
-    // Persistence & Presets
-    function saveStateToStorage() {
-        try {
-            var serializable = {
-                platform: state.platform,
-                username: state.username,
-                isVerified: state.isVerified,
-                showFollow: state.showFollow,
-                caption: state.caption,
-                audioName: state.audioName,
-                likesCount: state.likesCount,
-                commentsCount: state.commentsCount,
-                savesCount: state.savesCount,
-                sharesCount: state.sharesCount,
-                showSafeZones: state.showSafeZones,
-                showSubtitleZone: state.showSubtitleZone,
-                showMockUi: state.showMockUi,
-                overlayOpacity: state.overlayOpacity,
-                avatarDataUrl: state.avatarDataUrl
-            };
-            localStorage.setItem(STORAGE_STATE_KEY, JSON.stringify(serializable));
-        } catch (e) {}
-    }
-
-    function loadStateFromStorage() {
-        try {
-            var raw = localStorage.getItem(STORAGE_STATE_KEY);
-            if (!raw) return;
-            var parsed = JSON.parse(raw);
-            if (!parsed) return;
-
-            if (parsed.platform && PLATFORM_META[parsed.platform]) state.platform = parsed.platform;
-            if (typeof parsed.username === 'string') state.username = parsed.username;
-            if (typeof parsed.isVerified === 'boolean') state.isVerified = parsed.isVerified;
-            if (typeof parsed.showFollow === 'boolean') state.showFollow = parsed.showFollow;
-            if (typeof parsed.caption === 'string') state.caption = parsed.caption;
-            if (typeof parsed.audioName === 'string') state.audioName = parsed.audioName;
-            if (typeof parsed.likesCount === 'string') state.likesCount = parsed.likesCount;
-            if (typeof parsed.commentsCount === 'string') state.commentsCount = parsed.commentsCount;
-            if (typeof parsed.savesCount === 'string') state.savesCount = parsed.savesCount;
-            if (typeof parsed.sharesCount === 'string') state.sharesCount = parsed.sharesCount;
-            if (typeof parsed.showSafeZones === 'boolean') state.showSafeZones = parsed.showSafeZones;
-            if (typeof parsed.showSubtitleZone === 'boolean') state.showSubtitleZone = parsed.showSubtitleZone;
-            if (typeof parsed.showMockUi === 'boolean') state.showMockUi = parsed.showMockUi;
-            if (typeof parsed.overlayOpacity === 'number') state.overlayOpacity = parsed.overlayOpacity;
-            if (typeof parsed.avatarDataUrl === 'string' && parsed.avatarDataUrl) {
-                state.avatarDataUrl = parsed.avatarDataUrl;
-            }
-        } catch (e) {}
-    }
-
-    function syncInputsFromState() {
-        if (inputUsername) inputUsername.value = state.username;
-        if (checkVerified) checkVerified.checked = state.isVerified;
-        if (checkFollow) checkFollow.checked = state.showFollow;
-        if (inputCaption) inputCaption.value = state.caption;
-        if (inputAudio) inputAudio.value = state.audioName;
-        if (inputLikes) inputLikes.value = state.likesCount;
-        if (inputComments) inputComments.value = state.commentsCount;
-        if (inputSaves) inputSaves.value = state.savesCount;
-        if (inputShares) inputShares.value = state.sharesCount;
-        if (checkSafeZones) checkSafeZones.checked = state.showSafeZones;
-        if (checkSubtitleZone) checkSubtitleZone.checked = state.showSubtitleZone;
-        if (checkShowUi) checkShowUi.checked = state.showMockUi;
-        if (inputOpacity) {
-            var pct = Math.round(state.overlayOpacity * 100);
-            inputOpacity.value = String(pct);
-            if (opacityValText) opacityValText.textContent = pct + '%';
-        }
-        loadAvatarImage(state.avatarDataUrl);
+    function syncInputs() {
+        $('input-username').value = state.username;
+        $('input-caption').value = state.caption;
+        $('input-audio').value = state.audioName;
+        $('input-likes').value = state.likesCount;
+        $('input-comments').value = state.commentsCount;
+        $('input-saves').value = state.savesCount;
+        $('input-shares').value = state.sharesCount;
+        var pct = Math.round(state.overlayOpacity * 100);
+        $('input-opacity').value = String(pct);
+        $('opacity-val').textContent = pct + '%';
+        syncChips();
+        loadAvatar(state.avatarDataUrl);
         updatePlatformUI();
     }
 
-    function loadAvatarImage(src) {
+    function loadAvatar(src) {
         if (!src) return;
         var img = new Image();
         img.onload = function () {
-            state.avatarImage = img;
-            if (avatarImgPreview) avatarImgPreview.src = src;
-            scheduleRender(true);
+            runtime.avatarImage = img;
+            $('avatar-img-preview').src = src;
+            scheduleRender();
         };
         img.src = src;
     }
 
-    function getPresets() {
+    function updateToolAvailability() {
+        // DaVinci has no scripting API for reframing a timeline
+        $('btn-reframe').disabled = runtime.host === 'RESOLVE';
+    }
+
+    // ------------------------------------------------------------------ Presets
+    function getPresets() { try { return JSON.parse(localStorage.getItem(PRESETS_KEY) || '{}'); } catch (e) { return {}; } }
+    function setPresets(p) { try { localStorage.setItem(PRESETS_KEY, JSON.stringify(p)); } catch (e) {} }
+    var PRESET_FIELDS = ['username', 'isVerified', 'showFollow', 'caption', 'audioName', 'likesCount', 'commentsCount', 'savesCount', 'sharesCount', 'avatarDataUrl'];
+
+    function renderPresets(selected) {
+        var sel = $('preset-selector');
+        sel.innerHTML = '';
+        var def = document.createElement('option');
+        def.value = '__default__';
+        def.textContent = 'Varsayılan (@alptugdag)';
+        sel.appendChild(def);
+        Object.keys(getPresets()).forEach(function (k) {
+            var o = document.createElement('option');
+            o.value = k;
+            o.textContent = '@' + k;
+            if (k === selected) o.selected = true;
+            sel.appendChild(o);
+        });
+    }
+
+    // ------------------------------------------------------------------ Tool actions
+    function exportClip(mode) {
+        refreshSequence(true);
+        var tag = mode === 'guides_only' ? 'Kilavuz' : 'Arayuz';
+        var fileName = 'Alptuguide_' + tag + '_' + state.platform + '_' + runtime.seq.width + 'x' + runtime.seq.height + '_' + Date.now() + '.png';
+        var label = 'Alptuguide ' + (mode === 'guides_only' ? 'Kılavuz' : 'Arayüz') + ' (' + state.platform + ')';
+        var dataUrl = overlayPng(mode, Math.max(runtime.seq.width, runtime.seq.height));
+
+        if (hasNative() && !fs) {
+            sendNative({ action: 'insertLayer', fileName: fileName, displayName: label, pngBase64: dataUrl.split(',')[1], isLivePreview: false }, function (res) {
+                toast(res === 'OK' ? label + ' eklendi.' : (res || 'Eklenemedi.'), res !== 'OK');
+            });
+            return;
+        }
+        if (!ensureShareDir()) return;
+        var out = path.join(SHARE_DIR, fileName);
+        try { writePng(out, dataUrl); } catch (e) { toast(e.message, true); return; }
+        callHost('insertClipPermanent', [out, label], function (res) {
+            toast(res === 'OK' ? label + ' en üst kanala eklendi.' : (res || 'Eklenemedi.'), res !== 'OK');
+        });
+    }
+
+    function exportDesktop() {
+        var fileName = 'Alptuguide_' + state.platform + '_' + runtime.seq.width + 'x' + runtime.seq.height + '_' + Date.now() + '.png';
+        var dataUrl = overlayPng('current', Math.max(runtime.seq.width, runtime.seq.height));
+        if (hasNative() && !fs) {
+            sendNative({ action: 'exportDesktop', fileName: fileName, pngBase64: dataUrl.split(',')[1] }, function (res) {
+                toast(res === 'OK' ? 'Masaüstüne kaydedildi.' : (res || 'Kaydedilemedi.'), res !== 'OK');
+            });
+            return;
+        }
+        if (!fs) return;
         try {
-            var raw = localStorage.getItem(STORAGE_PRESETS_KEY);
-            return raw ? JSON.parse(raw) : {};
-        } catch (e) {
-            return {};
+            writePng(path.join(os.homedir(), 'Desktop', fileName), dataUrl);
+            toast('Masaüstüne kaydedildi: ' + fileName);
+        } catch (e) { toast(e.message, true); }
+    }
+
+    function addMarkers() {
+        var meta = PLATFORM[state.platform];
+        callHost('addPlatformMarkers', [meta.limit, meta.name], function (res) {
+            if (res && String(res).indexOf('OK') === 0) {
+                var n = String(res).split(':')[1] || '1';
+                toast(n === '1' ? 'HOOK marker\'ı eklendi (süre ' + meta.name + ' limitinde).' : 'HOOK + süre limiti marker\'ları eklendi.');
+            } else {
+                toast(res || 'Marker eklenemedi.', true);
+            }
+        });
+    }
+
+    function reframe() {
+        toast('9:16 kopya hazırlanıyor…');
+        var w = 1080, h = 1920;
+        if (runtime.seq.width >= 3840 || runtime.seq.height >= 2160) { w = 2160; h = 3840; }
+        callHost('createVerticalVersion', [w, h], function (res) {
+            if (res && String(res).indexOf('OK') === 0) {
+                toast('Oluşturuldu: ' + String(res).slice(3));
+                setTimeout(function () { refreshSequence(true); }, 600);
+            } else {
+                toast(res || '9:16 kopya oluşturulamadı.', true);
+            }
+        });
+    }
+
+    function cleanTimeline() {
+        if (runtime.monitorOn && runtime.host === 'AEFT') { runtime.monitorOn = false; updateMonitorButton(); }
+        callHost('cleanAllPreviewClips', [], function (res) {
+            if (res && String(res).indexOf('OK:') === 0) toast('Temizlendi: ' + res.split(':')[1] + ' Alptuguide katmanı.');
+            else toast('Temizlenecek katman yok.', true);
+        });
+    }
+
+    // ------------------------------------------------------------------ Events
+    function bind() {
+        $('platform-tabs').addEventListener('click', function (e) {
+            var b = e.target.closest('.seg-btn');
+            if (!b) return;
+            state.platform = b.getAttribute('data-platform');
+            updatePlatformUI();
+            scheduleRender();
+        });
+
+        document.addEventListener('click', function (e) {
+            var chip = e.target.closest('.chip[data-key]');
+            if (!chip) return;
+            var k = chip.getAttribute('data-key');
+            state[k] = !state[k];
+            chip.classList.toggle('on', state[k]);
+            scheduleRender();
+        });
+
+        $('input-opacity').addEventListener('input', function () {
+            var v = Number(this.value) || 100;
+            state.overlayOpacity = Math.max(0.2, Math.min(1, v / 100));
+            $('opacity-val').textContent = v + '%';
+            scheduleRender();
+        });
+
+        $('btn-monitor').addEventListener('click', function () { setMonitor(!runtime.monitorOn, false); });
+        $('btn-align').addEventListener('click', function () { setMonitor(true, true); });
+        $('seq-chip').addEventListener('click', function () { refreshSequence(true); });
+
+        var textBindings = {
+            'input-username': function (v) { state.username = v.replace(/^@+/, '').trim() || 'kullanici'; },
+            'input-caption': function (v) { state.caption = v; },
+            'input-audio': function (v) { state.audioName = v; },
+            'input-likes': function (v) { state.likesCount = v; },
+            'input-comments': function (v) { state.commentsCount = v; },
+            'input-saves': function (v) { state.savesCount = v; },
+            'input-shares': function (v) { state.sharesCount = v; }
+        };
+        Object.keys(textBindings).forEach(function (id) {
+            $(id).addEventListener('input', function () { textBindings[id](this.value); scheduleRender(); });
+        });
+
+        $('avatar-input').addEventListener('change', function () {
+            var f = this.files && this.files[0];
+            if (!f) return;
+            var reader = new FileReader();
+            reader.onload = function (ev) { state.avatarDataUrl = ev.target.result; loadAvatar(state.avatarDataUrl); };
+            reader.readAsDataURL(f);
+        });
+
+        $('btn-save-preset').addEventListener('click', function () {
+            var key = (state.username || 'profil').trim().toLowerCase();
+            var p = getPresets();
+            p[key] = {};
+            PRESET_FIELDS.forEach(function (f) { p[key][f] = state[f]; });
+            setPresets(p);
+            renderPresets(key);
+            toast('@' + key + ' kaydedildi.');
+        });
+        $('preset-selector').addEventListener('change', function () {
+            var key = this.value;
+            if (key === '__default__') {
+                state.username = 'alptugdag'; state.isVerified = true; state.showFollow = true;
+                state.caption = DEFAULT_CAPTION; state.audioName = 'alptugdag · Orijinal Ses';
+                state.avatarDataUrl = 'assets/sample_avatar.png';
+            } else {
+                var p = getPresets()[key];
+                if (p) PRESET_FIELDS.forEach(function (f) { if (typeof p[f] !== 'undefined') state[f] = p[f]; });
+            }
+            syncInputs();
+            scheduleRender();
+        });
+        $('btn-delete-preset').addEventListener('click', function () {
+            var sel = $('preset-selector');
+            if (sel.value === '__default__') return;
+            var p = getPresets();
+            delete p[sel.value];
+            setPresets(p);
+            toast('@' + sel.value + ' silindi.');
+            renderPresets('__default__');
+        });
+
+        $('btn-reframe').addEventListener('click', reframe);
+        $('btn-markers').addEventListener('click', addMarkers);
+        $('btn-insert-guides').addEventListener('click', function () { exportClip('guides_only'); });
+        $('btn-insert-overlay').addEventListener('click', function () { exportClip('current'); });
+        $('btn-export-png').addEventListener('click', exportDesktop);
+        $('btn-clean-timeline').addEventListener('click', cleanTimeline);
+
+        // Re-layout preview only when its box actually changes size
+        if (typeof ResizeObserver !== 'undefined') {
+            new ResizeObserver(function () { scheduleRender(false); }).observe(stage);
+        } else {
+            window.addEventListener('resize', function () { scheduleRender(false); });
+        }
+
+        // Cheap, event-driven refresh: panel focus / visibility, plus Premiere's push event
+        window.addEventListener('focus', function () { refreshSequence(false); syncOverlayStatus(); });
+        document.addEventListener('mouseenter', function () { refreshSequence(false); syncOverlayStatus(); });
+        document.addEventListener('visibilitychange', function () { if (!document.hidden) refreshSequence(false); });
+        if (csInterface) {
+            csInterface.addEventListener('com.alptug.alptuguide.seqchanged', function (ev) { applySequence(ev.data); });
         }
     }
 
-    function savePresets(presets) {
-        try {
-            localStorage.setItem(STORAGE_PRESETS_KEY, JSON.stringify(presets));
-        } catch (e) {}
-    }
-
-    function renderPresetOptions(selectedKey) {
-        if (!presetSelector) return;
-        var presets = getPresets();
-        presetSelector.innerHTML = '<option value="__default__">Varsayılan (@alptugdag)</option>';
-        var keys = Object.keys(presets);
-        for (var i = 0; i < keys.length; i++) {
-            var k = keys[i];
-            var opt = document.createElement('option');
-            opt.value = k;
-            opt.textContent = '@' + k;
-            if (k === selectedKey) opt.selected = true;
-            presetSelector.appendChild(opt);
-        }
-    }
-
-    function bindEvents() {
-        // Platform Tabs
-        for (var i = 0; i < tabButtons.length; i++) {
-            tabButtons[i].addEventListener('click', function () {
-                var p = this.getAttribute('data-platform');
-                if (p && PLATFORM_META[p]) {
-                    state.platform = p;
-                    updatePlatformUI();
-                    scheduleRender(true);
-                }
-            });
-        }
-
-        // Live Monitor Toggle & Force Refresh
-        if (btnToggleLive) {
-            btnToggleLive.addEventListener('click', function () {
-                state.liveMirrorActive = !state.liveMirrorActive;
-                btnToggleLive.classList.toggle('active', state.liveMirrorActive);
-                btnToggleLive.classList.toggle('paused', !state.liveMirrorActive);
-                if (liveToggleText) {
-                    liveToggleText.textContent = state.liveMirrorActive ? 'Canlı Monitör: Açık' : 'Canlı Monitör: Duraklatıldı';
-                }
-                if (state.liveMirrorActive) {
-                    captureLiveFrameNow(true);
-                }
-            });
-        }
-
-        if (btnForceRefresh) {
-            btnForceRefresh.addEventListener('click', function () {
-                refreshSequenceMetadata(function () {
-                    captureLiveFrameNow(true);
-                });
-            });
-        }
-
-        if (btnSyncMonitor) {
-            btnSyncMonitor.addEventListener('click', function () {
-                syncProgramMonitorLayer();
-            });
-        }
-
-        if (checkLiveMonitor) {
-            checkLiveMonitor.addEventListener('change', function () {
-                state.programMonitorLayerActive = this.checked;
-                evalExtendScript('togglePreviewVisibility(' + (this.checked ? 'true' : 'false') + ')');
-            });
-        }
-
-        // Safe Zones, Subtitle Zone, Mock UI, Opacity
-        if (checkSafeZones) {
-            checkSafeZones.addEventListener('change', function () {
-                state.showSafeZones = this.checked;
-                scheduleRender(true);
-            });
-        }
-
-        if (checkSubtitleZone) {
-            checkSubtitleZone.addEventListener('change', function () {
-                state.showSubtitleZone = this.checked;
-                scheduleRender(true);
-            });
-        }
-
-        if (checkShowUi) {
-            checkShowUi.addEventListener('change', function () {
-                state.showMockUi = this.checked;
-                scheduleRender(true);
-            });
-        }
-
-        if (inputOpacity) {
-            inputOpacity.addEventListener('input', function () {
-                var val = Number(this.value) || 100;
-                state.overlayOpacity = Math.max(0.2, Math.min(1.0, val / 100));
-                if (opacityValText) opacityValText.textContent = val + '%';
-                scheduleRender(true);
-            });
-        }
-
-        // Floating Overlay Controls
-        if (btnLaunchOverlay) {
-            btnLaunchOverlay.addEventListener('click', function () {
-                launchFloatingOverlayApp(false);
-            });
-        }
-
-        if (btnAlignOverlay) {
-            btnAlignOverlay.addEventListener('click', function () {
-                launchFloatingOverlayApp(true);
-            });
-        }
-
-        // Profile & Text Inputs
-        if (inputUsername) {
-            inputUsername.addEventListener('input', function () {
-                state.username = this.value.replace(/^@+/, '').trim() || 'kullanici';
-                scheduleRender(true);
-            });
-        }
-
-        if (checkVerified) {
-            checkVerified.addEventListener('change', function () {
-                state.isVerified = this.checked;
-                scheduleRender(true);
-            });
-        }
-
-        if (checkFollow) {
-            checkFollow.addEventListener('change', function () {
-                state.showFollow = this.checked;
-                scheduleRender(true);
-            });
-        }
-
-        if (inputCaption) {
-            inputCaption.addEventListener('input', function () {
-                state.caption = this.value;
-                scheduleRender(true);
-            });
-        }
-
-        if (inputAudio) {
-            inputAudio.addEventListener('input', function () {
-                state.audioName = this.value;
-                scheduleRender(true);
-            });
-        }
-
-        if (inputLikes) {
-            inputLikes.addEventListener('input', function () {
-                state.likesCount = this.value;
-                scheduleRender(true);
-            });
-        }
-
-        if (inputComments) {
-            inputComments.addEventListener('input', function () {
-                state.commentsCount = this.value;
-                scheduleRender(true);
-            });
-        }
-
-        if (inputSaves) {
-            inputSaves.addEventListener('input', function () {
-                state.savesCount = this.value;
-                scheduleRender(true);
-            });
-        }
-
-        if (inputShares) {
-            inputShares.addEventListener('input', function () {
-                state.sharesCount = this.value;
-                scheduleRender(true);
-            });
-        }
-
-        // Avatar Upload
-        if (avatarInput) {
-            avatarInput.addEventListener('change', function () {
-                var file = this.files && this.files[0];
-                if (!file) return;
-                if (avatarName) avatarName.textContent = file.name;
-                var reader = new FileReader();
-                reader.onload = function (ev) {
-                    state.avatarDataUrl = ev.target.result;
-                    loadAvatarImage(state.avatarDataUrl);
-                };
-                reader.readAsDataURL(file);
-            });
-        }
-
-        // Presets
-        if (btnSavePreset) {
-            btnSavePreset.addEventListener('click', function () {
-                var key = (state.username || 'profil').trim().toLowerCase();
-                var presets = getPresets();
-                presets[key] = {
-                    username: state.username,
-                    isVerified: state.isVerified,
-                    showFollow: state.showFollow,
-                    caption: state.caption,
-                    audioName: state.audioName,
-                    likesCount: state.likesCount,
-                    commentsCount: state.commentsCount,
-                    savesCount: state.savesCount,
-                    sharesCount: state.sharesCount,
-                    avatarDataUrl: state.avatarDataUrl
-                };
-                savePresets(presets);
-                renderPresetOptions(key);
-                showStatus('@' + key + ' profili kaydedildi.', 'success');
-            });
-        }
-
-        if (presetSelector) {
-            presetSelector.addEventListener('change', function () {
-                var key = this.value;
-                if (key === '__default__') {
-                    state.username = 'alptugdag';
-                    state.isVerified = true;
-                    state.showFollow = true;
-                    state.caption = 'Bu eklenti @alptugdag tarafından yapılmıştır, destek için takip edebilirsin, kolay gelsin!';
-                    state.audioName = 'alptugdag · Orijinal Ses';
-                    state.avatarDataUrl = 'assets/sample_avatar.png';
-                } else {
-                    var presets = getPresets();
-                    var p = presets[key];
-                    if (p) {
-                        state.username = p.username || key;
-                        state.isVerified = Boolean(p.isVerified);
-                        state.showFollow = Boolean(p.showFollow);
-                        state.caption = p.caption || '';
-                        state.audioName = p.audioName || '';
-                        state.likesCount = p.likesCount || '12.4K';
-                        state.commentsCount = p.commentsCount || '348';
-                        state.savesCount = p.savesCount || '9.8K';
-                        state.sharesCount = p.sharesCount || '1.2K';
-                        state.avatarDataUrl = p.avatarDataUrl || 'assets/sample_avatar.png';
-                    }
-                }
-                syncInputsFromState();
-            });
-        }
-
-        if (btnDeletePreset) {
-            btnDeletePreset.addEventListener('click', function () {
-                if (!presetSelector || presetSelector.value === '__default__') return;
-                var key = presetSelector.value;
-                var presets = getPresets();
-                delete presets[key];
-                savePresets(presets);
-                renderPresetOptions('__default__');
-                showStatus('@' + key + ' profili silindi.', 'success');
-            });
-        }
-
-        // Primary Action Buttons
-        if (btnInsertOverlay) {
-            btnInsertOverlay.addEventListener('click', function () {
-                insertLayerToTimeline('current');
-            });
-        }
-
-        if (btnInsertGuides) {
-            btnInsertGuides.addEventListener('click', function () {
-                insertLayerToTimeline('guides_only');
-            });
-        }
-
-        if (btnExportPng) {
-            btnExportPng.addEventListener('click', function () {
-                exportPngToDesktop();
-            });
-        }
-
-        if (btnCleanTimeline) {
-            btnCleanTimeline.addEventListener('click', function () {
-                cleanTimelineLayers();
-            });
-        }
-    }
-
+    // ------------------------------------------------------------------ Init
     function init() {
-        loadStateFromStorage();
-        renderPresetOptions('__default__');
-        syncInputsFromState();
-        bindEvents();
-        scheduleRender(true);
-
-        // Initial Sequence Check
-        setTimeout(function () {
-            refreshSequenceMetadata(function () {
-                captureLiveFrameNow(false);
-            });
-        }, 400);
-
-        // Non-intrusive Playhead Settle Watcher (every 1400ms, zero lock during scrubbing)
-        setInterval(pollPlayheadSettle, 1400);
+        if (hasNative() && !fs) document.body.classList.add('native-glass');
+        loadPersisted();
+        renderPresets('__default__');
+        syncInputs();
+        bind();
+        updateMonitorButton();
+        updateToolAvailability();
+        scheduleRender(false);
+        refreshSequence(true);
+        syncOverlayStatus();
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
-    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+    else init();
 })();

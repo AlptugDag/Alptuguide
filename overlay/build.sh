@@ -39,8 +39,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
     <key>CFBundleExecutable</key><string>AlptuguideOverlay</string>
     <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>3.1.0</string>
-    <key>CFBundleVersion</key><string>310</string>
+    <key>CFBundleShortVersionString</key><string>3.2.0</string>
+    <key>CFBundleVersion</key><string>320</string>
     <key>LSMinimumSystemVersion</key><string>13.0</string>
     <key>LSUIElement</key><true/>
     <key>NSHighResolutionCapable</key><true/>

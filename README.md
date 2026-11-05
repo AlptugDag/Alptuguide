@@ -5,17 +5,17 @@
   </picture>
 </p>
 
-<h1 align="center">Alptuguide™ Studio v3.1</h1>
+<h1 align="center">Alptuguide™ Studio v3.2</h1>
 
 <p align="center">
-  <strong>Alptuguide™ Studio</strong>; dikey video prodüksiyonlarında (<strong>Instagram Reels</strong>, <strong>TikTok</strong>, <strong>YouTube Shorts</strong> ve <strong>3'lü Ortak Kesişim</strong>) birebir doğrulanmış güvenli alan (safe-zone) kılavuzlarını ve canlı sosyal medya UI simülasyonunu <strong>sıfır gecikme (zero-lag)</strong> ile sunan, <strong>Apple Liquid Glass</strong> arayüzüne ve çoklu platform desteğine (<strong>Adobe Premiere Pro</strong>, <strong>Adobe After Effects</strong>, <strong>DaVinci Resolve Studio</strong> ve <strong>macOS Native Studio</strong>) sahip profesyonel bir kurgu paketidir.
+  <strong>Alptuguide™ Studio</strong>; dikey video prodüksiyonlarında (<strong>Instagram Reels</strong>, <strong>TikTok</strong>, <strong>YouTube Shorts</strong> ve <strong>3'lü Ortak Kesişim</strong>) birebir doğrulanmış güvenli alan kılavuzlarını ve canlı sosyal medya arayüz simülasyonunu <strong>Program Monitöründe render çıktısına girmeden</strong> sunan, ultra kompakt <strong>Apple Liquid Glass</strong> arayüzüne ve profesyonel kurgu araçlarına sahip çoklu platform (<strong>Adobe Premiere Pro</strong>, <strong>Adobe After Effects</strong>, <strong>DaVinci Resolve Studio</strong> ve <strong>macOS Native Studio</strong>) kurgu eklentisidir.
   <br><br>
   <img src="https://img.shields.io/badge/macOS-13%2B-black" alt="macOS 13+">
   <img src="https://img.shields.io/badge/Apple%20Silicon%20%26%20Intel-Universal-blue" alt="Universal Binary">
   <img src="https://img.shields.io/badge/Adobe%20CEP-Premiere%20Pro%20%26%20After%20Effects-7c3aed" alt="Adobe CEP">
   <img src="https://img.shields.io/badge/DaVinci%20Resolve-Studio%2018%20%26%2019%2B-ea580c" alt="DaVinci Resolve">
   <img src="https://img.shields.io/badge/UI%20Design-Apple%20Liquid%20Glass-0284c7" alt="Apple Liquid Glass">
-  <img src="https://img.shields.io/badge/version-3.1.0-10b981" alt="v3.1.0">
+  <img src="https://img.shields.io/badge/version-3.2.0-10b981" alt="v3.2.0">
 </p>
 
 <p align="center">
@@ -30,33 +30,49 @@
 
 ---
 
-## Öne Çıkan Yenilikler ve Mimari (v3.1)
+## Öne Çıkan Yenilikler ve Mimari (v3.2)
 
-### 1. 💎 Apple Liquid Glass Arayüz Tasarımı
-Alptuguide Studio v3.1, modern macOS ve Apple tasarım diline uygun **Liquid Glass** mimarisiyle sıfırdan tasarlandı:
-- **Refractive Specular Sheen**: Yarı saydam cam katmanların üst kenarında ışık kırılması ve parıltı hissi veren özel yansıma hatları.
-- **Translucent Backdrop Blur**: macOS `NSVisualEffectView` ve modern CSS `backdrop-filter: blur(32px)` ile panel arkasındaki kurgu ortamını zarifçe yansıtan derinlikli cam efekti.
-- **Liquid Capsule Controls**: Akıcı geçişlere sahip kapsül segmentli sekmeler, sıvı parıltılı butonlar ve dokunsal mikro etkileşimler.
-- **Kompakt Çoklu Panel**: Her monitör çözünürlüğünde kristal netliğinde vektörel ikonografi ve pürüzsüz çalışma alanı.
+### 1. ⚡️ Gerçek Zamanlı Program Monitörü Kılavuzu (Render'a Asla Girmez)
+Önceki sürümlerdeki ekran görüntüsü alma veya sürekli arka plan kare yakalama mantığı tamamen kaldırıldı; sıfır disk ve CPU/GPU yüküyle çalışır:
+- **Tek Tıkla Monitör Önizlemesi ("Program Monitöründe Göster"):**
+  - **After Effects**: Doğrudan aktif Composition içine yerel bir **Guide Layer** ekler. After Effects render motoru Guide Layer'ları çıktılarda kesinlikle render etmez.
+  - **Premiere Pro & DaVinci Resolve**: Tıklamaları alta geçiren (`ignoresMouseEvents`) şeffaf, yerel macOS Liquid Glass overlay penceresi Program Monitörü / Viewer üzerine oturur. Timeline'a klip eklemediği için render'a asla girmez.
+- **Global Kısayol (`⌃⌥G` / Control + Option + G):** Kurgu yazılımınızdan çıkmadan kılavuzu anında açıp kapatabilirsiniz.
+- **Milimetrik Hizalama:** Ok tuşlarıyla `1 px` (Shift ile `10 px`) hassas kaydırma ve `+` / `-` tuşlarıyla anında ölçekleme.
 
 <p align="center">
-  <img src="docs/screenshots/liquid_glass_panel.png" alt="Alptuguide Studio Liquid Glass UI" width="70%">
+  <img src="docs/screenshots/liquid_glass_panel.png" alt="Alptuguide Studio Liquid Glass Panel" width="60%">
 </p>
 
 ---
 
-### 2. 🎬 DaVinci Resolve Studio Tam Entegrasyonu
-DaVinci Resolve kullanıcıları için sıfır eforla çalışan çift katmanlı yerel entegrasyon eklendi:
-- **Workflow Integration Plugin**: DaVinci Resolve Studio'nun yerel Electron mimarisi üzerinden çalışan bağımsız Liquid Glass Studio arayüzü (`~/Library/Application Support/Blackmagic Design/DaVinci Resolve/Workflow Integration Plugins/com.alptug.alptuguide`).
-- **Fusion / Edit Scripts**: DaVinci Resolve menüsünden (`Workspace > Scripts > Alptuguide Studio`) tek tıkla tetiklenebilen yerel Python otomasyonu.
-- **Python SDK Köprüsü (`resolve_bridge.py`)**:
-  - **Otomatik Çözünürlük Algılama**: Timeline'ın `1080×1920`, `2160×3840 (4K)` veya yatay formatını anında okuyup kılavuzları dinamik olarak ölçekler.
-  - **Viewer Kare Yakalama (`ExportCurrentFrameAsStill`)**: Playhead üzerindeki kareyi anında yakalayıp Alptuguide Studio önizlemesine aktarır.
-  - **Tek Tıkla Timeline'a Kılavuz Ekleme (`AppendToTimeline`)**: İlgili güvenli alan kılavuzunu timeline'ın en üst video izine otomatik ekler veya tek tıkla temizler.
+### 2. 💎 Ultra Kompakt & Tamamen Responsive Tasarım
+- Panel içi tüm gereksiz host etiketleri, kafa karıştıran "Monitör: Canlı" ve "Canlı Monitör: Açık" butonları kaldırıldı.
+- **Dinamik Boyutlanma:** Geniş pencerelerde önizleme ve kontroller yan yana iki sütun; dar pencerelerde dikey akış; zaman çizelgesi altına yerleştirilen çok kısa panellerde ise önizleme gizlenerek doğrudan kurgu araçlarına odaklanan akıllı düzen.
+- Statik CSS cam gradyanları ve sıfır idle GPU tüketimi.
 
 ---
 
-### 3. 📱 1:1 Doğrulanmış Sosyal Medya Güvenli Alanları
+### 3. 🎬 Kurguculara Özel Yeni Profesyonel Araçlar
+Bir profesyonel video kurgucusunun iş akışını hızlandıracak kritik yetenekler eklendi:
+- **Gelişmiş Kompozisyon Kılavuzları:**
+  - **Üçte Bir (Rule of Thirds):** Kadraj ve obje dengesi için 3x3 ızgara çizgileri.
+  - **Merkez Artı (Center Crosshair):** Başlık ve logonun tam merkezlendiğinden emin olmak için.
+  - **Broadcast Safe:** %90 Action Safe ve %80 Title Safe TV / yayın sınırları.
+- **Kırpma Simülasyonları:**
+  - **Feed 4:5:** Dikey Reels videolarının Instagram ve Facebook ana akışında (feed) üstten ve alttan nasıl kırpılacağını gösteren canlı maskeleme.
+  - **Grid 3:4 & 1:1:** Profil ızgarasında videonun nasıl görüneceğini test etme.
+- **Platform Süre Uyarıları & Hook Marker:**
+  - Sekans süresi platform limitini aştığında (Reels 3 dk, Shorts 3 dk, TikTok 10 dk) sekans göstergesi anında kırmızı/sarı uyarı verir.
+  - **"Hook & Limit":** Tek tıkla timeline'ın 3. saniyesine (izleyicinin videoda kalma karar anı) **HOOK** marker'ı ve süre aşılıyorsa limit uyarı marker'ı ekler.
+- **9:16 Otomatik Kopya (Auto Reframe / Nested Comp):**
+  - Orijinal sekansa dokunmadan, yatay veya kare videoyu tek tıkla 9:16 dikey sekansa dönüştürür (Premiere Pro'da Adobe Sensei Auto Reframe motoru, After Effects'te nested cover comp).
+- **Timeline Temizleyici:**
+  - Export öncesinde timeline'daki tüm Alptuguide önizleme ve kılavuz kliplerini tek tıkla temizler.
+
+---
+
+### 4. 📱 1:1 Doğrulanmış Sosyal Medya Güvenli Alanları
 Platformların güncel resmi tasarım kılavuzları ve canlı testleri baz alınarak piksel hassasiyetinde (`1080 × 1920` referans, `4K 2160 × 3840` otomatik ölçek) kalibre edildi:
 
 <p align="center">
@@ -76,20 +92,6 @@ Platformların güncel resmi tasarım kılavuzları ve canlı testleri baz alın
 - **Ortak Kılavuz (`all`)**: Tek videoyu aynı anda hem Reels, hem TikTok, hem YouTube Shorts'ta paylaşan içerik üreticileri için **3 platformun en sıkı kesişim alanı**:
   - Üst: `288 px` | Alt: `672 px` (Organik: `490 px`) | Sol: `65 px` | Sağ: `192 px`
   - **Net %100 Güvenli Merkez Alan**: `823 × 960 px` (`x: 65..888`, `y: 288..1248`) — Organik modda `823 × 1142 px` (`y: 288..1430`).
-
----
-
-### 4. ⚡️ Sıfır Takılma & Sıfır CPU/GPU Yükü Mimarisi
-- **Asenkron Kare Yakalama**: ExtendScript ve Python işlemlerinde ana iş parçacığını donduran tüm bloklayıcı döngüler kaldırıldı; asenkron Event-Driven mimari kullanılır.
-- **Playhead Settle Algılama**: Timeline üzerinde gezinirken (scrubbing) veya video oynatılırken kurgu yazılımının kilit mekanizmalarını asla meşgul etmez; yalnızca playhead durduğunda kareyi günceller.
-- **Path2D Önbellekleme & 0% Idle GPU**: İkon vektörleri (`Path2D`) önbellekten çizilir, her karede yeniden nesne oluşturulmaz ve arka planda GPU tüketen sonsuz CSS animasyonları kaldırılmıştır.
-
----
-
-### 5. 🖥️ Yerel macOS Ekran Üstü Overlay & Studio Uygulaması (`/Applications/Alptuguide.app`)
-- Timeline'a hiçbir katman eklemeden Program Monitörü veya DaVinci Viewer üzerine oturan, tıklamaları alta geçiren (`ignoresMouseEvents`) yerel macOS (`arm64` + `x86_64` Universal Binary) uygulaması.
-- Çift pencere mimarisi: Hem **Liquid Glass Studio** yönetim paneli hem de **Şeffaf Ekran Üstü Kılavuz (HUD)** tek bir tıkla menü çubuğundan yönetilebilir.
-- **Premiere Pro**, **After Effects**, **DaVinci Resolve**, **Final Cut Pro** ve **CapCut** üzerinde bağımsız (standalone) olarak da çalışır.
 
 ---
 

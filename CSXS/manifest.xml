@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<ExtensionManifest Version="12.0" ExtensionBundleId="com.alptug.alptuguide" ExtensionBundleVersion="3.1.0" ExtensionBundleName="Alptuguide">
+<ExtensionManifest Version="12.0" ExtensionBundleId="com.alptug.alptuguide" ExtensionBundleVersion="3.2.0" ExtensionBundleName="Alptuguide">
   <ExtensionList>
-    <Extension Id="com.alptug.alptuguide.panel" Version="3.1.0" />
+    <Extension Id="com.alptug.alptuguide.panel" Version="3.2.0" />
   </ExtensionList>
   <ExecutionEnvironment>
     <HostList>
@@ -36,13 +36,17 @@
           <Menu>Alptuguide Studio</Menu>
           <Geometry>
             <Size>
-              <Height>820</Height>
-              <Width>380</Width>
+              <Height>720</Height>
+              <Width>340</Width>
             </Size>
             <MinSize>
-              <Height>450</Height>
-              <Width>320</Width>
+              <Height>220</Height>
+              <Width>220</Width>
             </MinSize>
+            <MaxSize>
+              <Height>3840</Height>
+              <Width>3840</Width>
+            </MaxSize>
           </Geometry>
         </UI>
       </DispatchInfo>

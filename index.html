@@ -112,13 +112,48 @@
         </div>
     </details>
 
+    <!-- Viral Hook & Yapay Zeka Motoru -->
+    <details class="card fold" id="fold-viral-hook" open>
+        <summary>
+            <span>⚡ Viral Kurgu &amp; Yapay Zeka (AI)</span>
+            <svg class="ico chev"><use href="#i-chev"/></svg>
+        </summary>
+        <div class="fold-body">
+            <div class="field-group">
+                <label class="field-label" style="font-size:10px; color:var(--text-muted); display:block; margin-bottom:3px;">Kanca / Retention Stili</label>
+                <select id="select-hook-style" class="field">
+                    <option value="punch_zoom" selected>🚀 Smooth Punch Zoom &amp; Sarsıntı</option>
+                    <option value="hormozi_title">🔥 Hormozi Pop Başlık &amp; Kanca</option>
+                    <option value="strobe_flash">⚡ Flaş Patlaması &amp; Hızlı İtiş</option>
+                    <option value="glitch_shock">💥 Glitch &amp; Kinetik Darbe</option>
+                    <option value="jump_snap">⏱️ Ritmik Sıçrama (Jump-Snap)</option>
+                    <option value="ai_smart">✨ Yapay Zeka (Gemini Otonom Seçim)</option>
+                </select>
+            </div>
+            <div class="field-group">
+                <label class="field-label" style="font-size:10px; color:var(--text-muted); display:block; margin-bottom:3px;">Özel Kanca Başlığı (Opsiyonel)</label>
+                <input type="text" id="input-hook-title" class="field" placeholder="Örn: BUNU BİLMİYORDUNUZ!">
+            </div>
+            <div class="field-group">
+                <label class="field-label" style="font-size:10px; color:var(--text-muted); display:block; margin-bottom:3px;">Gemini API Anahtarı (Google AI Studio)</label>
+                <div class="field prefix">
+                    <span>🔑</span>
+                    <input type="password" id="input-gemini-key" placeholder="AIzaSy... (buraya yapıştırın)">
+                </div>
+            </div>
+            <button type="button" class="btn-primary" id="btn-apply-hook-main" style="width:100%; padding:8px; margin-top:2px; font-weight:600; font-size:11px; background:linear-gradient(135deg, #10b981, #059669); border:none; border-radius:var(--radius-sm); color:#fff; cursor:pointer;">
+                ⚡ İlk 3sn Viral Hook Uygula
+            </button>
+        </div>
+    </details>
+
     <!-- Pro Editor Tools -->
     <section class="card section-card">
         <div class="section-title">Kurgu Araçları</div>
         <div class="tools-grid">
-            <button type="button" class="tool-btn" id="btn-viral-hook" title="İlk 3 saniyeye evrensel viral hook efektleri ekler (Smooth Punch Zoom + Camera Shake + Kanca Başlığı)">
+            <button type="button" class="tool-btn" id="btn-viral-hook" title="Seçili stilde ilk 3 saniyeye kanca uygular">
                 <svg class="ico"><use href="#i-marker"/></svg>
-                <span>⚡ 3sn Viral Hook</span>
+                <span>⚡ Hızlı Hook</span>
             </button>
             <button type="button" class="tool-btn" id="btn-reframe" title="Orijinale dokunmadan 9:16 kopya oluşturur">
                 <svg class="ico"><use href="#i-reframe"/></svg>

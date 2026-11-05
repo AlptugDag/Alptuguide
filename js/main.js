@@ -270,12 +270,19 @@
         publishTimer = setTimeout(function () { publish(false); }, runtime.host === 'AEFT' ? 350 : 150);
     }
 
-    // Program Monitöründe Kılavuz Gösterme (Premiere Pro'da Sıfır Timeline İzi)
+    // Program Monitöründe Kılavuz Gösterme (Canlı Senkron & Kilitli Katman)
     function publish(edit, done) {
         if (runtime.host === 'PPRO') {
-            callHost('setPremiereNativeGuides', [runtime.monitorOn, state], function (res) {
-                if (res && String(res).indexOf('ERR') === 0) toast(res, true);
-                if (done) done(true);
+            if (!ensureShareDir()) { toast('Dosya erişimi yok.', true); if (done) done(false); return; }
+            var pproPath = path.join(SHARE_DIR, 'Alptuguide_PPRO_Guide.png');
+            if (runtime.monitorOn) {
+                var pw = Math.max(runtime.seq.width || 1080, 1080);
+                var ph = Math.max(runtime.seq.height || 1920, 1920);
+                writePng(pproPath, overlayPng('current', Math.max(pw, ph)));
+            }
+            callHost('setPremiereGuide', [pproPath, runtime.monitorOn], function (res) {
+                if (res && String(res).indexOf('Hata') === 0) toast(res, true);
+                if (done) done(res === 'OK');
             });
             return;
         }
@@ -327,7 +334,7 @@
             } else if (runtime.host === 'RESOLVE') {
                 toast(on ? 'DaVinci Viewer kılavuzu etkinleştirildi.' : 'Kılavuz gizlendi.');
             } else {
-                toast(on ? 'Program Monitöründe gösteriliyor (Sıfır timeline izi).' : 'Monitör kılavuzları gizlendi.');
+                toast(on ? 'Program Monitöründe gösteriliyor (Kilitli Kılavuz · Render Dışı).' : 'Monitör kılavuzları gizlendi.');
             }
         });
     }
@@ -682,16 +689,49 @@
             });
         }
 
+        // Viral Hook & Gemini API Key
+        var geminiKeyInput = $('input-gemini-key');
+        if (geminiKeyInput) {
+            try {
+                var savedKey = localStorage.getItem('alptuguide_gemini_key') || '';
+                if (savedKey) geminiKeyInput.value = savedKey;
+            } catch (e) {}
+
+            geminiKeyInput.addEventListener('input', function () {
+                var k = this.value.trim();
+                try { localStorage.setItem('alptuguide_gemini_key', k); } catch (e) {}
+                if (mekClient && !mekClient.destroyed && k) {
+                    mekClient.write(JSON.stringify({ type: 'set_config', key: 'gemini_api_key', value: k }) + '\n');
+                }
+            });
+        }
+
+        function executeViralHook() {
+            var styleEl = $('select-hook-style');
+            var style = styleEl ? styleEl.value : 'punch_zoom';
+            var titleEl = $('input-hook-title');
+            var customTitle = titleEl ? titleEl.value.trim() : '';
+            var keyEl = $('input-gemini-key');
+            var key = keyEl ? keyEl.value.trim() : '';
+
+            var params = { style: style, title: customTitle, gemini_key: key };
+
+            callHost('applyViralRetentionHook', [params], function (res) {
+                var d = {};
+                try { d = typeof res === 'string' ? JSON.parse(res) : res; } catch (e) {}
+                if (d.ok) toast(d.message || 'İlk 3sn Viral Hook uygulandı!');
+                else toast(d.message || d.error || 'Hook uygulanamadı.', true);
+            });
+        }
+
+        var applyHookMainBtn = $('btn-apply-hook-main');
+        if (applyHookMainBtn) {
+            applyHookMainBtn.addEventListener('click', executeViralHook);
+        }
+
         var vHookBtn = $('btn-viral-hook');
         if (vHookBtn) {
-            vHookBtn.addEventListener('click', function () {
-                callHost('applyViralRetentionHook', [{}], function (res) {
-                    var d = {};
-                    try { d = typeof res === 'string' ? JSON.parse(res) : res; } catch (e) {}
-                    if (d.ok) toast(d.message || 'İlk 3sn Viral Hook uygulandı!');
-                    else toast(d.message || d.error || 'Hook uygulanamadı.', true);
-                });
-            });
+            vHookBtn.addEventListener('click', executeViralHook);
         }
 
         var refBtn = $('btn-reframe');

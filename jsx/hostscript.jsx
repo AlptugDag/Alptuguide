@@ -147,20 +147,27 @@ function setCompGuide(filePath, enable) {
 
 // Premiere Pro Program Monitor Doğrudan Kılavuz Entegrasyonu
 // Sekansın en üst video kanalına kılavuzu ekler; render'a girmez / tek tıkla gizlenir.
+// Premiere Pro Program Monitor Doğrudan Kılavuz Entegrasyonu
+// Sekansın en üst video kanalına kilitli kılavuz ekler; render'a girmez / tek tıkla gizlenir / timeline kurgusuna asla karışmaz.
 function setPremiereGuide(filePath, enable) {
     try {
         var proj = app.project;
         if (!proj || !proj.activeSequence) return "Lütfen bir sekans açın.";
         var seq = proj.activeSequence;
 
-        // 1. Önceki Alptuguide kılavuz klibini bul ve temizle
+        // 1. Önceki Alptuguide kılavuz kliplerini bul ve temizle
         for (var t = 0; t < seq.videoTracks.numTracks; t++) {
             var trk = seq.videoTracks[t];
             for (var c = trk.clips.numItems - 1; c >= 0; c--) {
                 var clp = trk.clips[c];
                 var cName = (clp.name || "") + " " + ((clp.projectItem && clp.projectItem.name) || "");
                 if (cName.indexOf("Alptuguide") >= 0 || cName.indexOf("Guide") >= 0 || cName.indexOf("Kılavuz") >= 0) {
-                    try { clp.remove(false, false); } catch (e) { try { clp.disabled = true; } catch (e2) {} }
+                    try {
+                        trk.setLocked(false);
+                        clp.remove(false, false);
+                    } catch (e) {
+                        try { clp.disabled = true; } catch (e2) {}
+                    }
                 }
             }
         }
@@ -173,8 +180,9 @@ function setPremiereGuide(filePath, enable) {
         // Proje içinde mevcut öğeyi ara veya içe aktar
         var item = null;
         for (var i = proj.rootItem.children.numItems - 1; i >= 0; i--) {
-            if (proj.rootItem.children[i].name === fileObj.name) {
-                item = proj.rootItem.children[i];
+            var child = proj.rootItem.children[i];
+            if (child && child.name === fileObj.name) {
+                item = child;
                 break;
             }
         }
@@ -183,18 +191,22 @@ function setPremiereGuide(filePath, enable) {
                 return "İçe aktarma başarısız.";
             }
             for (var i = proj.rootItem.children.numItems - 1; i >= 0; i--) {
-                if (proj.rootItem.children[i].name === fileObj.name) {
-                    item = proj.rootItem.children[i];
+                var child = proj.rootItem.children[i];
+                if (child && child.name === fileObj.name) {
+                    item = child;
                     break;
                 }
             }
+        } else {
+            // RAM cache bypass: Dosyayı diskten anında yenile
+            try { item.refreshMedia(); } catch (rErr) {}
         }
         if (!item) return "Kılavuz öğesi bulunamadı.";
 
         var numTracks = seq.videoTracks.numTracks;
         if (!numTracks) return "Video kanalı yok.";
 
-        // Kullanıcının kurgusunu bozmamak için boş bir üst kanal seç veya yeni kanal ekle
+        // Kullanıcının kurgusunu kesinlikle bozmamak için boş bir üst kanal seç
         var targetTrack = null;
         for (var t = numTracks - 1; t >= 0; t--) {
             if (seq.videoTracks[t].clips.numItems === 0) {
@@ -203,6 +215,7 @@ function setPremiereGuide(filePath, enable) {
             }
         }
 
+        // Boş kanal yoksa en üste yeni 1 kanal ekle
         if (!targetTrack) {
             try {
                 app.enableQE();
@@ -221,7 +234,7 @@ function setPremiereGuide(filePath, enable) {
             targetTrack = seq.videoTracks[numTracks - 1];
         }
 
-        // Sekansın başına (00:00:00:00) yerleştir
+        targetTrack.setLocked(false);
         var startPos = new Time();
         startPos.seconds = 0;
         targetTrack.overwriteClip(item, startPos);
@@ -229,7 +242,7 @@ function setPremiereGuide(filePath, enable) {
         for (var c = 0; c < targetTrack.clips.numItems; c++) {
             var clip = targetTrack.clips[c];
             if (clip.projectItem && clip.projectItem.name === fileObj.name) {
-                clip.name = "[Alptuguide Kılavuz]";
+                clip.name = "[Alptuguide Kılavuz (Render Dışı)]";
                 if (typeof clip.setScaleToFrameSize === "function") {
                     try { clip.setScaleToFrameSize(); } catch (sErr) {}
                 }
@@ -239,6 +252,8 @@ function setPremiereGuide(filePath, enable) {
                 break;
             }
         }
+        // Kullanıcının kurgusuna ve razor aracına asla takılmaması için kanalı kilitle
+        try { targetTrack.setLocked(true); } catch (lErr) {}
         return "OK";
     } catch (e) {
         return "Hata: " + e.toString();
@@ -555,7 +570,8 @@ function applyViralRetentionHook(optionsJson) {
         var opt = {};
         try { opt = typeof optionsJson === "string" ? JSON.parse(optionsJson) : (optionsJson || {}); } catch (e) {}
 
-        var hookTitle = opt.title || "⚡ BUNU BİLMİYORDUNUZ!";
+        var style = opt.style || "punch_zoom";
+        var hookTitle = opt.title || (style === "hormozi_title" ? "⚡ DİKKATLE İZLEYİN!" : "⚡ BUNU BİLMİYORDUNUZ!");
         var hookDurationSec = 3.0; // İlk 3 saniye evrensel viral kuralı
 
         // 1. Video kanalı 1'deki ilk klibi bul
@@ -570,10 +586,11 @@ function applyViralRetentionHook(optionsJson) {
         var firstClip = v1.clips[0];
         var clipEndSec = firstClip.end ? firstClip.end.seconds : 10.0;
 
-        // 2. Motion (Hareket) bileşenini bul ve Smooth Punch Zoom + Camera Shake keyframe'lerini bas
+        // 2. Motion (Hareket) ve Opacity bileşenlerini bul
         var motionApplied = false;
         var scaleProp = null;
         var posProp = null;
+        var opacityProp = null;
 
         for (var c = 0; c < firstClip.components.numItems; c++) {
             var comp = firstClip.components[c];
@@ -588,24 +605,56 @@ function applyViralRetentionHook(optionsJson) {
                         posProp = prop;
                     }
                 }
+            } else if (cName.indexOf("opacity") >= 0 || cName.indexOf("opaklık") >= 0) {
+                for (var op = 0; op < comp.properties.numItems; op++) {
+                    var oProp = comp.properties[op];
+                    var oName = (oProp.displayName || "").toLowerCase();
+                    if (oName.indexOf("opacity") >= 0 || oName.indexOf("opaklık") >= 0) {
+                        opacityProp = oProp;
+                    }
+                }
             }
         }
 
-        // Punch Zoom: 0. saniyede %100, 2.4. saniyede %118 (smooth push-in)
+        // Stile göre keyframe setlerini uygula:
         if (scaleProp) {
             try {
                 scaleProp.setTimeVarying(true);
                 var t0 = new Time(); t0.seconds = 0.0;
-                var tPunch = new Time(); tPunch.seconds = Math.min(2.4, clipEndSec - 0.2);
-                scaleProp.addKey(t0);
-                scaleProp.setValueAtKey(t0, 100.0, true);
-                scaleProp.addKey(tPunch);
-                scaleProp.setValueAtKey(tPunch, 118.0, true);
-                motionApplied = true;
+
+                if (style === "jump_snap") {
+                    // Ritmik Sıçrama (Jump Cut Snap): 0s=%100 -> 1s=%108 -> 2s=%118
+                    var t1 = new Time(); t1.seconds = 1.0;
+                    var t2 = new Time(); t2.seconds = 2.0;
+                    scaleProp.addKey(t0); scaleProp.setValueAtKey(t0, 100.0, true);
+                    scaleProp.addKey(t1); scaleProp.setValueAtKey(t1, 108.0, true);
+                    scaleProp.addKey(t2); scaleProp.setValueAtKey(t2, 118.0, true);
+                    motionApplied = true;
+                } else if (style === "strobe_flash") {
+                    // Flaş Patlaması: 0. karede anında %114, 2.5s'ye kadar yavaş süzülme
+                    var tFlashEnd = new Time(); tFlashEnd.seconds = Math.min(2.5, clipEndSec - 0.2);
+                    scaleProp.addKey(t0); scaleProp.setValueAtKey(t0, 114.0, true);
+                    scaleProp.addKey(tFlashEnd); scaleProp.setValueAtKey(tFlashEnd, 120.0, true);
+                    motionApplied = true;
+                } else if (style === "glitch_shock") {
+                    // Glitch Darbesi: 0. saniyede %105, 0.4s'de %116, 2.4s'de %120
+                    var tg1 = new Time(); tg1.seconds = 0.4;
+                    var tg2 = new Time(); tg2.seconds = Math.min(2.4, clipEndSec - 0.2);
+                    scaleProp.addKey(t0); scaleProp.setValueAtKey(t0, 105.0, true);
+                    scaleProp.addKey(tg1); scaleProp.setValueAtKey(tg1, 116.0, true);
+                    scaleProp.addKey(tg2); scaleProp.setValueAtKey(tg2, 120.0, true);
+                    motionApplied = true;
+                } else {
+                    // Standart / Hormozi / AI: Smooth Punch Zoom (%100 -> %120)
+                    var tPunch = new Time(); tPunch.seconds = Math.min(2.4, clipEndSec - 0.2);
+                    scaleProp.addKey(t0); scaleProp.setValueAtKey(t0, 100.0, true);
+                    scaleProp.addKey(tPunch); scaleProp.setValueAtKey(tPunch, 120.0, true);
+                    motionApplied = true;
+                }
             } catch (sErr) {}
         }
 
-        // Camera Shake: İlk 12 karede sönümlü darbe sarsıntısı (ocular reflex trigger)
+        // Camera Shake / Sarsıntı keyframe'leri
         if (posProp) {
             try {
                 posProp.setTimeVarying(true);
@@ -613,14 +662,39 @@ function applyViralRetentionHook(optionsJson) {
                 var baseX = basePos && basePos.length > 0 ? basePos[0] : 0.5;
                 var baseY = basePos && basePos.length > 1 ? basePos[1] : 0.5;
 
-                var shakeOffsets = [
-                    [0.00,  14, -10],
-                    [0.08, -12,   8],
-                    [0.16,   9,  -6],
-                    [0.28,  -5,   4],
-                    [0.40,   2,  -2],
-                    [0.50,   0,   0]
-                ];
+                var shakeOffsets = [];
+                if (style === "glitch_shock") {
+                    // Yüksek frekanslı yatay-dikey RGB ayrışma sarsıntısı
+                    shakeOffsets = [
+                        [0.00,  24, -14],
+                        [0.05, -20,  18],
+                        [0.10,  16, -10],
+                        [0.15, -12,   8],
+                        [0.22,   8,  -5],
+                        [0.32,  -4,   2],
+                        [0.45,   0,   0]
+                    ];
+                } else if (style === "jump_snap") {
+                    // Atlama anlarında mikro sarsıntı
+                    shakeOffsets = [
+                        [0.00,  8, -6],
+                        [0.10,  0,  0],
+                        [1.00, 10, -8],
+                        [1.10,  0,  0],
+                        [2.00, 12, -8],
+                        [2.10,  0,  0]
+                    ];
+                } else {
+                    // Evrensel sönümlü sinüs titreşimi (ocular reflex)
+                    shakeOffsets = [
+                        [0.00,  15, -10],
+                        [0.08, -13,   8],
+                        [0.16,   9,  -6],
+                        [0.28,  -5,   4],
+                        [0.40,   2,  -2],
+                        [0.50,   0,   0]
+                    ];
+                }
 
                 for (var s = 0; s < shakeOffsets.length; s++) {
                     var item = shakeOffsets[s];
@@ -634,26 +708,53 @@ function applyViralRetentionHook(optionsJson) {
             } catch (pErr) {}
         }
 
+        // Flaş Patlaması (Strobe Flash stili için 4 karelik pozlama/opaklık kırpışması)
+        if (style === "strobe_flash" && opacityProp) {
+            try {
+                opacityProp.setTimeVarying(true);
+                var tf0 = new Time(); tf0.seconds = 0.0;
+                var tf1 = new Time(); tf1.seconds = 0.06;
+                var tf2 = new Time(); tf2.seconds = 0.12;
+                var tf3 = new Time(); tf3.seconds = 0.20;
+                opacityProp.addKey(tf0); opacityProp.setValueAtKey(tf0, 100.0, true);
+                opacityProp.addKey(tf1); opacityProp.setValueAtKey(tf1, 35.0, true);
+                opacityProp.addKey(tf2); opacityProp.setValueAtKey(tf2, 100.0, true);
+                opacityProp.addKey(tf3); opacityProp.setValueAtKey(tf3, 100.0, true);
+            } catch (fErr) {}
+        }
+
         // 3. Timeline Marker Ekle (00:00:00:00)
         try {
             var markers = seq.markers;
             if (markers) {
                 var mkr = markers.createMarker(0.0);
                 if (mkr) {
-                    mkr.name = "⚡ [VIRAL HOOK: 0-3s]";
-                    mkr.comments = "Smooth Punch Zoom (%100 -> %118) + Camera Shake Darbesi + Kanca Başlığı";
+                    mkr.name = "⚡ [" + hookTitle + "]";
+                    mkr.comments = "Viral Hook Stili: " + style.toUpperCase() + " (İlk 3 Saniye Retention Garantisi)";
                     mkr.end = new Time(); mkr.end.seconds = hookDurationSec;
                 }
             }
         } catch (mErr) {}
 
+        var styleLabels = {
+            "punch_zoom": "Smooth Punch Zoom & Sarsıntı",
+            "hormozi_title": "Hormozi Pop Başlık & Kanca",
+            "strobe_flash": "Flaş Patlaması & Hızlı Zum",
+            "glitch_shock": "Glitch & Kinetik Darbe",
+            "jump_snap": "Ritmik Sıçrama (Jump-Snap)",
+            "ai_smart": "Yapay Zeka Destekli Otonom Kanca"
+        };
+        var currentLabel = styleLabels[style] || style;
+
         return _json({
             ok: true,
             sequence: seq.name,
+            style: style,
+            style_label: currentLabel,
             motion_applied: motionApplied,
             hook_duration: hookDurationSec,
             hook_title: hookTitle,
-            message: "Timeline'ın ilk 3 saniyesine (00:00 - 03:00) Smooth Punch Zoom, Camera Shake ve Viral Kanca Marker'ı uygulandı."
+            message: "Timeline'ın ilk 3 saniyesine (00:00 - 03:00) " + currentLabel + " uygulandı."
         });
     } catch (e) {
         return _json({ ok: false, error: e.toString() });

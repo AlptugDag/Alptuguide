@@ -215,8 +215,24 @@ window.AlptuguideResolveBridge = {
                 return JSON.stringify({ ok: false, error: 'DR_EXPORT_ERR', message: 'DaVinci Viewer karesi alınamadı.' });
             }
 
-            if (cmd === 'initOrUpdateProgramMonitor') {
-                return insertOrUpdateTimelineClip(args[0], 'Alptuguide Live Preview');
+            if (cmd === 'initOrUpdateProgramMonitor' || cmd === 'setPremiereGuide' || cmd === 'setCompGuide' || cmd === 'setMonitorGuide') {
+                if (!args[1]) {
+                    // Kılavuzu gizle / temizle
+                    const ctx = getActiveContext();
+                    if (ctx.error) return ctx.error;
+                    const trackCount = Number(ctx.timeline.GetTrackCount('video')) || 0;
+                    for (let t = 1; t <= trackCount; t++) {
+                        const items = ctx.timeline.GetItemListInTrack('video', t) || [];
+                        for (let i = 0; i < items.length; i++) {
+                            const nm = (items[i] && items[i].GetName) ? items[i].GetName().toLowerCase() : '';
+                            if (nm.indexOf('alptuguide') >= 0 || nm.indexOf('kılavuz') >= 0) {
+                                if (typeof items[i].SetClipEnabled === 'function') items[i].SetClipEnabled(false);
+                            }
+                        }
+                    }
+                    return 'OK';
+                }
+                return insertOrUpdateTimelineClip(args[0], '[Alptuguide Kılavuz]');
             }
 
             if (cmd === 'insertClipPermanent') {

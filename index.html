@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Alptuguide</title>
+    <title>Alptuguide Studio</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -11,21 +11,16 @@
         <defs>
             <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
             <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.2M6.3 6.3C3.6 8 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.7-1.8M9.9 9.9a3 3 0 0 0 4.2 4.2"/></symbol>
-            <symbol id="i-align" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
-            <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
-            <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18h2"/></symbol>
             <symbol id="i-reframe" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><rect x="9" y="3" width="6" height="18" rx="1.5"/></symbol>
             <symbol id="i-marker" viewBox="0 0 24 24"><path d="M6 3h12v13l-6 5-6-5z"/></symbol>
             <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 2 2 7l10 5 10-5z"/><path d="m2 17 10 5 10-5M2 12l10 5 10-5"/></symbol>
             <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></symbol>
             <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
             <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
-            <symbol id="i-save" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></symbol>
-            <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></symbol>
         </defs>
     </svg>
 
-    <!-- Top bar: brand + live sequence chip -->
+    <!-- Header: Brand + Live Sequence Status Badge -->
     <header class="topbar">
         <div class="brand">
             <img src="assets/imza.svg" class="brand-sig" alt="Alptuğ Dağ">
@@ -37,7 +32,7 @@
         </button>
     </header>
 
-    <!-- Platform segmented control -->
+    <!-- Platform Tabs -->
     <nav class="seg" role="tablist" id="platform-tabs">
         <button type="button" class="seg-btn active" data-platform="reels">Reels</button>
         <button type="button" class="seg-btn" data-platform="tiktok">TikTok</button>
@@ -45,110 +40,75 @@
         <button type="button" class="seg-btn" data-platform="all" title="3 platformun en sıkı ortak kesişimi">Ortak</button>
     </nav>
 
-    <!-- Primary action: show guide directly on the Program Monitor (never rendered) -->
-    <section class="monitor-row">
+    <!-- Master Monitor Switch: Directly on Program Monitor / Viewer (Never exported) -->
+    <section class="monitor-card">
         <button type="button" class="btn-monitor" id="btn-monitor" aria-pressed="false">
-            <svg class="ico"><use href="#i-eye"/></svg>
-            <span class="btn-monitor-text">
+            <div class="monitor-icon-wrap">
+                <svg class="ico"><use href="#i-eye"/></svg>
+            </div>
+            <div class="btn-monitor-text">
                 <strong id="monitor-title">Program Monitöründe Göster</strong>
-                <small id="monitor-sub">Render'a girmez · ⌃⌥G</small>
-            </span>
-        </button>
-        <button type="button" class="btn-icon" id="btn-align" title="Monitöre hizala (ilk kullanımda bir kez)">
-            <svg class="ico"><use href="#i-align"/></svg>
+                <small id="monitor-sub">Render'a girmez · Monitörle senkron</small>
+            </div>
         </button>
     </section>
 
-    <main class="layout">
-        <!-- Mini preview (pure guide render — no frame grabbing, zero host load) -->
-        <section class="card preview-card" id="preview-card">
-            <div class="preview-stage" id="preview-stage">
-                <canvas id="render-canvas"></canvas>
-            </div>
-            <p class="spec" id="spec-text">Üst 269 · Alt 672 · Sol 65 · Sağ 146 px</p>
-        </section>
-
-        <div class="controls">
-            <!-- Overlay layers as compact chips -->
-            <section class="card">
-                <div class="chips" id="layer-chips">
-                    <button type="button" class="chip" data-key="showSafeZones">Güvenli alan</button>
-                    <button type="button" class="chip" data-key="showMockUi">Arayüz</button>
-                    <button type="button" class="chip" data-key="showSubtitleZone">Altyazı çizgisi</button>
-                    <button type="button" class="chip" data-key="thirds">Üçte bir</button>
-                    <button type="button" class="chip" data-key="center">Merkez</button>
-                    <button type="button" class="chip" data-key="feed45" title="Instagram/Facebook akışında Reels 4:5 kırpılır">Feed 4:5</button>
-                    <button type="button" class="chip" data-key="grid34" title="Instagram profil ızgarası 3:4 kırpma">Grid 3:4</button>
-                    <button type="button" class="chip" data-key="square">1:1</button>
-                    <button type="button" class="chip" data-key="broadcast" title="Action %90 / Title %80">Broadcast</button>
-                </div>
-                <label class="slider-row">
-                    <span>Opaklık</span>
-                    <input type="range" id="input-opacity" min="20" max="100" step="5" value="100">
-                    <output id="opacity-val">100%</output>
-                </label>
-            </section>
-
-            <!-- Profile & content (collapsed by default) -->
-            <details class="card fold" id="fold-profile">
-                <summary><span>Profil &amp; İçerik</span><svg class="ico chev"><use href="#i-chev"/></svg></summary>
-                <div class="fold-body">
-                    <div class="row">
-                        <select id="preset-selector" class="field" title="Kayıtlı profil"></select>
-                        <button type="button" class="btn-icon sm" id="btn-save-preset" title="Profili kaydet"><svg class="ico"><use href="#i-save"/></svg></button>
-                        <button type="button" class="btn-icon sm danger" id="btn-delete-preset" title="Profili sil"><svg class="ico"><use href="#i-trash"/></svg></button>
-                    </div>
-                    <div class="row">
-                        <label class="avatar" for="avatar-input" title="Profil fotoğrafı yükle">
-                            <img id="avatar-img-preview" src="assets/sample_avatar.png" alt="">
-                            <svg class="ico"><use href="#i-upload"/></svg>
-                        </label>
-                        <input type="file" id="avatar-input" accept="image/*" hidden>
-                        <div class="field prefix"><span>@</span><input type="text" id="input-username" placeholder="kullanıcı adı"></div>
-                    </div>
-                    <div class="chips">
-                        <button type="button" class="chip" data-key="isVerified">Mavi tik</button>
-                        <button type="button" class="chip" data-key="showFollow" id="chip-follow">Takip et</button>
-                    </div>
-                    <textarea id="input-caption" class="field" rows="2" placeholder="Açıklama"></textarea>
-                    <input type="text" id="input-audio" class="field" placeholder="Ses / müzik">
-                    <div class="metrics">
-                        <label><span id="metric-like-text">Beğeni</span><input type="text" id="input-likes" class="field"></label>
-                        <label><span>Yorum</span><input type="text" id="input-comments" class="field"></label>
-                        <label id="metric-box-saves"><span>Kaydet</span><input type="text" id="input-saves" class="field"></label>
-                        <label><span id="metric-share-text">Paylaş</span><input type="text" id="input-shares" class="field"></label>
-                    </div>
-                </div>
-            </details>
-
-            <!-- Editor tools -->
-            <details class="card fold" id="fold-tools" open>
-                <summary><span>Kurgu Araçları</span><svg class="ico chev"><use href="#i-chev"/></svg></summary>
-                <div class="fold-body tools">
-                    <button type="button" class="tool" id="btn-reframe" title="Orijinale dokunmadan 9:16 kopya oluşturur (Premiere: Auto Reframe)">
-                        <svg class="ico"><use href="#i-reframe"/></svg><span>9:16 Kopya</span>
-                    </button>
-                    <button type="button" class="tool" id="btn-markers" title="3. saniyeye HOOK, süre limitine uyarı marker'ı ekler">
-                        <svg class="ico"><use href="#i-marker"/></svg><span>Hook &amp; Limit</span>
-                    </button>
-                    <button type="button" class="tool" id="btn-insert-guides" title="Kılavuzu PNG olarak en üst kanala ekler">
-                        <svg class="ico"><use href="#i-grid"/></svg><span>Kılavuz Klibi</span>
-                    </button>
-                    <button type="button" class="tool" id="btn-insert-overlay" title="Arayüz simülasyonunu PNG olarak en üst kanala ekler">
-                        <svg class="ico"><use href="#i-layers"/></svg><span>Arayüz Klibi</span>
-                    </button>
-                    <button type="button" class="tool" id="btn-export-png" title="Şeffaf PNG'yi masaüstüne kaydeder">
-                        <svg class="ico"><use href="#i-download"/></svg><span>PNG</span>
-                    </button>
-                    <button type="button" class="tool danger" id="btn-clean-timeline" title="Timeline'daki tüm Alptuguide kliplerini kaldırır">
-                        <svg class="ico"><use href="#i-trash"/></svg><span>Temizle</span>
-                    </button>
-                </div>
-            </details>
+    <!-- Guide Overlay Layer Controls -->
+    <section class="card section-card">
+        <div class="section-title">Kılavuz Katmanları</div>
+        <div class="chips-grid" id="layer-chips">
+            <button type="button" class="chip on" data-key="showSafeZones">Güvenli Alan</button>
+            <button type="button" class="chip on" data-key="showMockUi">Sosyal Arayüz</button>
+            <button type="button" class="chip on" data-key="feed45" title="Instagram akışında 4:5 kırpma">Feed 4:5</button>
+            <button type="button" class="chip on" data-key="showSubtitleZone" title="Altyazı ve CTA güvenli sınırı">Altyazı Sınırı</button>
+            <button type="button" class="chip" data-key="thirds" title="Üçte bir kuralı kılavuz çizgileri">Üçte Bir (3x3)</button>
+            <button type="button" class="chip" data-key="center" title="Merkez artı işareti">Merkez Artı</button>
+            <button type="button" class="chip" data-key="grid34" title="Instagram profil ızgarası 3:4 kırpma">Grid 3:4</button>
+            <button type="button" class="chip" data-key="broadcast" title="Action %90 / Title %80">Broadcast</button>
         </div>
-    </main>
 
-    <footer class="foot">© 2026 Alptuğ Dağ · Alptuguide™ v3.2</footer>
+        <div class="slider-row">
+            <span class="slider-label">Opaklık</span>
+            <input type="range" id="input-opacity" min="20" max="100" step="5" value="100">
+            <output id="opacity-val">100%</output>
+        </div>
+    </section>
+
+    <!-- Pro Editor Tools -->
+    <section class="card section-card">
+        <div class="section-title">Kurgu Araçları</div>
+        <div class="tools-grid">
+            <button type="button" class="tool-btn" id="btn-reframe" title="Orijinale dokunmadan 9:16 kopya oluşturur">
+                <svg class="ico"><use href="#i-reframe"/></svg>
+                <span>9:16 Kopya</span>
+            </button>
+            <button type="button" class="tool-btn" id="btn-markers" title="3. saniyeye HOOK ve süre limitine marker ekler">
+                <svg class="ico"><use href="#i-marker"/></svg>
+                <span>Hook &amp; Limit</span>
+            </button>
+            <button type="button" class="tool-btn" id="btn-insert-guides" title="Kılavuzu PNG klibi olarak timeline'a ekler">
+                <svg class="ico"><use href="#i-grid"/></svg>
+                <span>Kılavuz Klibi</span>
+            </button>
+            <button type="button" class="tool-btn" id="btn-insert-overlay" title="Arayüz simülasyonunu timeline'a ekler">
+                <svg class="ico"><use href="#i-layers"/></svg>
+                <span>Arayüz Klibi</span>
+            </button>
+            <button type="button" class="tool-btn" id="btn-export-png" title="Şeffaf kılavuz PNG'sini masaüstüne kaydeder">
+                <svg class="ico"><use href="#i-download"/></svg>
+                <span>PNG İndir</span>
+            </button>
+            <button type="button" class="tool-btn danger" id="btn-clean-timeline" title="Timeline'daki tüm Alptuguide katmanlarını temizler">
+                <svg class="ico"><use href="#i-trash"/></svg>
+                <span>Temizle</span>
+            </button>
+        </div>
+    </section>
+
+    <footer class="foot">
+        <span>© 2026 Alptuğ Dağ · Alptuguide™ v3.3</span>
+    </footer>
+
     <div id="toast" class="toast" role="status"></div>
 
     <script src="js/CSInterface.js"></script>

@@ -145,6 +145,114 @@ function setCompGuide(filePath, enable) {
     }
 }
 
+// Premiere Pro Program Monitor Doğrudan Kılavuz Entegrasyonu
+// Sekansın en üst video kanalına kılavuzu ekler; render'a girmez / tek tıkla gizlenir.
+function setPremiereGuide(filePath, enable) {
+    try {
+        var proj = app.project;
+        if (!proj || !proj.activeSequence) return "Lütfen bir sekans açın.";
+        var seq = proj.activeSequence;
+
+        // 1. Önceki Alptuguide kılavuz klibini bul ve temizle
+        for (var t = 0; t < seq.videoTracks.numTracks; t++) {
+            var trk = seq.videoTracks[t];
+            for (var c = trk.clips.numItems - 1; c >= 0; c--) {
+                var clp = trk.clips[c];
+                var cName = (clp.name || "") + " " + ((clp.projectItem && clp.projectItem.name) || "");
+                if (cName.indexOf("Alptuguide") >= 0 || cName.indexOf("Guide") >= 0 || cName.indexOf("Kılavuz") >= 0) {
+                    try { clp.remove(false, false); } catch (e) { try { clp.disabled = true; } catch (e2) {} }
+                }
+            }
+        }
+
+        if (!enable) return "OK";
+
+        var fileObj = new File(filePath);
+        if (!fileObj.exists) return "Dosya bulunamadı: " + filePath;
+
+        // Proje içinde mevcut öğeyi ara veya içe aktar
+        var item = null;
+        for (var i = proj.rootItem.children.numItems - 1; i >= 0; i--) {
+            if (proj.rootItem.children[i].name === fileObj.name) {
+                item = proj.rootItem.children[i];
+                break;
+            }
+        }
+        if (!item) {
+            if (!proj.importFiles([fileObj.fsName], true, proj.rootItem, false)) {
+                return "İçe aktarma başarısız.";
+            }
+            for (var i = proj.rootItem.children.numItems - 1; i >= 0; i--) {
+                if (proj.rootItem.children[i].name === fileObj.name) {
+                    item = proj.rootItem.children[i];
+                    break;
+                }
+            }
+        }
+        if (!item) return "Kılavuz öğesi bulunamadı.";
+
+        var numTracks = seq.videoTracks.numTracks;
+        if (!numTracks) return "Video kanalı yok.";
+
+        // Kullanıcının kurgusunu bozmamak için boş bir üst kanal seç veya yeni kanal ekle
+        var targetTrack = null;
+        for (var t = numTracks - 1; t >= 0; t--) {
+            if (seq.videoTracks[t].clips.numItems === 0) {
+                targetTrack = seq.videoTracks[t];
+                break;
+            }
+        }
+
+        if (!targetTrack) {
+            try {
+                app.enableQE();
+                if (typeof qe !== "undefined" && qe.project) {
+                    var qeSeq = qe.project.getActiveSequence();
+                    if (qeSeq && typeof qeSeq.addTracks === "function") {
+                        qeSeq.addTracks(1, numTracks, 0, 0);
+                        numTracks = seq.videoTracks.numTracks;
+                        targetTrack = seq.videoTracks[numTracks - 1];
+                    }
+                }
+            } catch (qeErr) {}
+        }
+
+        if (!targetTrack) {
+            targetTrack = seq.videoTracks[numTracks - 1];
+        }
+
+        // Sekansın başına (00:00:00:00) yerleştir
+        var startPos = new Time();
+        startPos.seconds = 0;
+        targetTrack.overwriteClip(item, startPos);
+
+        for (var c = 0; c < targetTrack.clips.numItems; c++) {
+            var clip = targetTrack.clips[c];
+            if (clip.projectItem && clip.projectItem.name === fileObj.name) {
+                clip.name = "[Alptuguide Kılavuz]";
+                if (typeof clip.setScaleToFrameSize === "function") {
+                    try { clip.setScaleToFrameSize(); } catch (sErr) {}
+                }
+                if (seq.end && clip.end) {
+                    try { clip.end = seq.end; } catch (eDur) {}
+                }
+                break;
+            }
+        }
+        return "OK";
+    } catch (e) {
+        return "Hata: " + e.toString();
+    }
+}
+
+// Ortak Monitör Kılavuz Yönlendiricisi (PPRO / AEFT)
+function setMonitorGuide(filePath, enable) {
+    if (getHostApp() === "AEFT") {
+        return setCompGuide(filePath, enable);
+    }
+    return setPremiereGuide(filePath, enable);
+}
+
 // ---------------------------------------------------------------- Timeline layers
 
 function insertClipPermanent(filePath, displayName) {

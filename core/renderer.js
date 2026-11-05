@@ -515,20 +515,29 @@
         ctx.translate((w - L.W * s) / 2, (h - L.H * s) / 2);
         ctx.scale(s, s);
         var info = null;
+        // 1. Sosyal Arayüz (Mock UI): Yalnızca kullanıcı 'Sosyal Arayüz'ü açtığında çizilir.
         if (cfg.showUi && platform !== 'all') {
             ctx.save();
             ctx.globalAlpha = alpha;
             info = drawUi(ctx, uiPlatform, cfg, assets);
             ctx.restore();
         }
-        if (Z && (cfg.showSafeZones || cfg.showUi)) {
+
+        // 2. Güvenli Alanlar: YALNIZCA 'Güvenli Alan' çipi açıksa çizilir.
+        // Asla Sosyal Arayüz'ün üstüne otomatik kırmızı tehlike kutuları veya kılavuz basılmaz!
+        if (Z && cfg.showSafeZones) {
+            ctx.save();
+            ctx.globalAlpha = alpha;
             Z.draw(ctx, platform, {
                 opacity: alpha,
                 labels: cfg.showGuideLabels !== false,
-                showSafeZones: Boolean(cfg.showSafeZones),
-                showUiBoxes: Boolean(cfg.showUi)
+                showSafeZones: true,
+                showUiBoxes: !cfg.showUi // Sosyal arayüz kapalıysa kutuları göster, açıksa arayüzün kendisi yeterlidir
             });
+            ctx.restore();
         }
+
+        // 3. Altyazı Sınırı: Yalnızca 'Altyazı Sınırı' çipi açıksa çizilir.
         if (cfg.showSubtitleZone) {
             if (!info) {
                 var p = L.platforms[uiPlatform] || L.platforms.reels;
@@ -544,7 +553,7 @@
             subtitleLine(ctx, info.subtitleY, info.truncated, info.lineCount);
             ctx.restore();
         }
-        if (cfg.showUi !== false) watermark(ctx);
+        if (cfg.showUi) watermark(ctx);
         ctx.restore();
     }
 

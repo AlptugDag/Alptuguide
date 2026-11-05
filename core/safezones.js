@@ -232,8 +232,8 @@
         }
         ctx.globalAlpha = alpha;
 
-        // 1. Draw platform danger / warning / crop / nav zones (if UI boxes enabled)
-        if (opts.showUiBoxes !== false) {
+        // 1. Draw platform danger / warning / crop / nav zones (only if UI boxes explicitly requested)
+        if (opts.showUiBoxes === true) {
             spec.zones.forEach(function (z) {
                 drawZoneBox(ctx, z, showLabels);
             });
@@ -258,48 +258,22 @@
             ctx.strokeRect(rFull.x, rFull.y, rFull.w, rFull.h);
             ctx.shadowBlur = 0;
             ctx.restore();
-        }
 
-        // Rule-of-thirds subtle grid inside the guaranteed safe zone
-        ctx.strokeStyle = 'rgba(16, 185, 129, 0.22)';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(rFull.x + rFull.w / 3, rFull.y);
-        ctx.lineTo(rFull.x + rFull.w / 3, rFull.y + rFull.h);
-        ctx.moveTo(rFull.x + (rFull.w * 2) / 3, rFull.y);
-        ctx.lineTo(rFull.x + (rFull.w * 2) / 3, rFull.y + rFull.h);
-        ctx.moveTo(rFull.x, rFull.y + rFull.h / 3);
-        ctx.lineTo(rFull.x + rFull.w, rFull.y + rFull.h / 3);
-        ctx.moveTo(rFull.x, rFull.y + (rFull.h * 2) / 3);
-        ctx.lineTo(rFull.x + rFull.w, rFull.y + (rFull.h * 2) / 3);
-        ctx.stroke();
-
-        // Center crosshair (frame center 540, 960 & safe-zone center)
-        var scx = rFull.x + rFull.w / 2;
-        var scy = rFull.y + rFull.h / 2;
-        ctx.strokeStyle = 'rgba(52, 211, 153, 0.75)';
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.moveTo(scx - 28, scy);
-        ctx.lineTo(scx + 28, scy);
-        ctx.moveTo(scx, scy - 28);
-        ctx.lineTo(scx, scy + 28);
-        ctx.stroke();
-
-        if (showLabels) {
-            var tag = 'TAM GÜVENLİ ALAN · ' + spec.name.toUpperCase() + ' · ' + rFull.w + '×' + rFull.h + ' px (X:' + rFull.x + '–' + (rFull.x + rFull.w) + ', Y:' + rFull.y + '–' + (rFull.y + rFull.h) + ')';
-            font(ctx, 700, 19);
-            var tw = Math.min(rFull.w - 16, ctx.measureText(tag).width + 26);
-            roundRect(ctx, rFull.x + 8, rFull.y + 8, tw, 34, 8);
-            ctx.fillStyle = 'rgba(6, 28, 20, 0.90)';
-            ctx.fill();
-            ctx.lineWidth = 1.5;
-            ctx.strokeStyle = '#10b981';
-            ctx.stroke();
-            ctx.fillStyle = '#6ee7b7';
-            ctx.textAlign = 'left';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(tag, rFull.x + 20, rFull.y + 25);
+            if (showLabels) {
+                var tag = 'TAM GÜVENLİ ALAN · ' + spec.name.toUpperCase() + ' · ' + rFull.w + '×' + rFull.h + ' px (X:' + rFull.x + '–' + (rFull.x + rFull.w) + ', Y:' + rFull.y + '–' + (rFull.y + rFull.h) + ')';
+                font(ctx, 700, 19);
+                var tw = Math.min(rFull.w - 16, ctx.measureText(tag).width + 26);
+                roundRect(ctx, rFull.x + 8, rFull.y + 8, tw, 34, 8);
+                ctx.fillStyle = 'rgba(6, 28, 20, 0.90)';
+                ctx.fill();
+                ctx.lineWidth = 1.5;
+                ctx.strokeStyle = '#10b981';
+                ctx.stroke();
+                ctx.fillStyle = '#6ee7b7';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(tag, rFull.x + 20, rFull.y + 25);
+            }
         }
         ctx.restore();
 

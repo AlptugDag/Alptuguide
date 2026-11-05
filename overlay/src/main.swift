@@ -1,11 +1,14 @@
-// Alptuguide™ Native macOS App & Floating Safe-Zone Overlay v3.0
+// Alptuguide™ Native macOS Liquid Glass Studio & Floating Safe-Zone Overlay v3.1
 // Copyright (c) 2026 Alptuğ Dağ (@alptugdag). All rights reserved.
 //
-// Zero-lag, click-through floating overlay window for:
-// - Adobe Premiere Pro & After Effects (CEP Panel Live Sync + Built-in 1:1 Guides)
-// - DaVinci Resolve, Final Cut Pro, CapCut, QuickTime (Standalone 1:1 Guides)
+// Dual-window architecture:
+// 1. StudioWindow: Translucent Apple Liquid Glass Studio panel (NSVisualEffectView + WKWebView)
+//    connected directly to DaVinci Resolve (via resolve_bridge.py) & macOS Floating Overlay.
+// 2. OverlayWindow: Zero-lag, click-through floating safe-zone overlay for Premiere Pro,
+//    After Effects, DaVinci Resolve, Final Cut Pro, CapCut, and QuickTime.
 
 import Cocoa
+import WebKit
 
 let shareDir = FileManager.default.homeDirectoryForCurrentUser
     .appendingPathComponent("Library/Application Support/Alptuguide", isDirectory: true)
@@ -15,6 +18,7 @@ let stateURL = shareDir.appendingPathComponent("state.json")
 struct OverlayState: Codable {
     var visible: Bool?
     var edit: Bool?
+    var openStudio: Bool?
     var host: String?
     var platform: String?
     var rev: Int?
@@ -88,11 +92,18 @@ final class OverlayWindow: NSWindow {
     override var canBecomeKey: Bool { true }
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+final class TransparentWebView: WKWebView {
+    override var isOpaque: Bool { false }
+}
+
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScriptMessageHandler {
     var window: OverlayWindow!
     var view: OverlayView!
+    var studioWindow: NSWindow?
+    var studioWebView: WKWebView?
     var statusItem: NSStatusItem!
 
+    var studioItem: NSMenuItem!
     var editItem: NSMenuItem!
     var visibleItem: NSMenuItem!
     var alwaysOnTopItem: NSMenuItem!
@@ -103,7 +114,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var dirFD: Int32 = -1
     var fallbackTimer: Timer?
 
-    var host = "PPRO"
+    var host = "RESOLVE"
     var sourceMode: GuideSourceMode = .panelSync
     var wantVisible = true
     var showInAllApps = false
@@ -151,7 +162,205 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             self?.reloadActiveImage(force: false)
         }
         updateVisibility()
+
+        let args = CommandLine.arguments
+        if args.contains("--studio") {
+            openStudioWindow()
+        }
     }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        openStudioWindow()
+        return true
+    }
+
+    // MARK: - Native Liquid Glass Studio Window (macOS + DaVinci Resolve)
+
+    @objc func openStudioWindow() {
+        if let win = studioWindow {
+            NSApp.activate(ignoringOtherApps: true)
+            win.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        let rect = NSRect(x: 120, y: 120, width: 410, height: 860)
+        let win = NSWindow(
+            contentRect: rect,
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        win.title = "Alptuguide™ Liquid Glass Studio"
+        win.titlebarAppearsTransparent = true
+        win.titleVisibility = .hidden
+        win.isOpaque = false
+        win.backgroundColor = NSColor(calibratedRed: 0.03, green: 0.05, blue: 0.09, alpha: 0.78)
+        win.minSize = NSSize(width: 360, height: 540)
+        win.isReleasedWhenClosed = false
+        win.level = .normal
+
+        let visualEffect = NSVisualEffectView(frame: rect)
+        visualEffect.material = .hudWindow
+        visualEffect.blendingMode = .behindWindow
+        visualEffect.state = .active
+        visualEffect.autoresizingMask = [.width, .height]
+
+        let config = WKWebViewConfiguration()
+        config.userContentController.add(self, name: "alptuguide")
+        config.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
+
+        let webFrame = NSRect(x: 0, y: 0, width: rect.width, height: rect.height)
+        let webView = TransparentWebView(frame: webFrame, configuration: config)
+        webView.autoresizingMask = [.width, .height]
+        webView.setValue(false, forKey: "drawsBackground")
+
+        if let uiDir = Bundle.main.resourceURL?.appendingPathComponent("ui"),
+           FileManager.default.fileExists(atPath: uiDir.appendingPathComponent("index.html").path) {
+            let indexURL = uiDir.appendingPathComponent("index.html")
+            webView.loadFileURL(indexURL, allowingReadAccessTo: uiDir)
+        }
+
+        visualEffect.addSubview(webView)
+        win.contentView = visualEffect
+        studioWindow = win
+        studioWebView = webView
+
+        win.center()
+        NSApp.activate(ignoringOtherApps: true)
+        win.makeKeyAndOrderFront(nil)
+    }
+
+    func replyToWebView(callbackId: Int?, result: String) {
+        guard let cid = callbackId, let wv = studioWebView else { return }
+        if let jsonData = try? JSONEncoder().encode(result),
+           let escaped = String(data: jsonData, encoding: .utf8) {
+            DispatchQueue.main.async {
+                wv.evaluateJavaScript("window.__alptuguideNativeCallback && window.__alptuguideNativeCallback(\(cid), \(escaped));", completionHandler: nil)
+            }
+        }
+    }
+
+    func runResolveBridge(cmd: String, arg1: String = "", arg2: String = "", completion: @escaping (String) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            guard let scriptURL = Bundle.main.resourceURL?.appendingPathComponent("ui/resolve/resolve_bridge.py"),
+                  FileManager.default.fileExists(atPath: scriptURL.path) else {
+                completion("{\"ok\":false,\"status\":\"NO_SCRIPT\",\"message\":\"DaVinci Resolve köprüsü bulunamadı.\",\"host\":\"RESOLVE\"}")
+                return
+            }
+            let proc = Process()
+            proc.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+            var args = [scriptURL.path, cmd]
+            if !arg1.isEmpty { args.append(arg1) }
+            if !arg2.isEmpty { args.append(arg2) }
+            proc.arguments = args
+
+            let pipe = Pipe()
+            proc.standardOutput = pipe
+            proc.standardError = FileHandle.nullDevice
+            do {
+                try proc.run()
+                proc.waitUntilExit()
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                let out = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                completion(out)
+            } catch {
+                completion("{\"ok\":false,\"error\":\"\(error.localizedDescription)\",\"host\":\"RESOLVE\"}")
+            }
+        }
+    }
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard let body = message.body as? [String: Any],
+              let action = body["action"] as? String else { return }
+        let callbackId = body["callbackId"] as? Int
+
+        switch action {
+        case "publishOverlay":
+            if let b64 = body["pngBase64"] as? String,
+               let data = Data(base64Encoded: b64) {
+                try? data.write(to: imageURL)
+                reloadActiveImage(force: true)
+            }
+            if let stDict = body["state"] as? [String: Any],
+               let stData = try? JSONSerialization.data(withJSONObject: stDict) {
+                try? stData.write(to: stateURL)
+            }
+            replyToWebView(callbackId: callbackId, result: "OK")
+
+        case "toggleOverlay":
+            if let vis = body["visible"] as? Bool { wantVisible = vis }
+            if let ed = body["edit"] as? Bool { setEditing(ed) }
+            updateVisibility()
+            replyToWebView(callbackId: callbackId, result: "OK")
+
+        case "exportDesktop":
+            if let fileName = body["fileName"] as? String,
+               let b64 = body["pngBase64"] as? String,
+               let data = Data(base64Encoded: b64) {
+                let desktop = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Desktop")
+                let outURL = desktop.appendingPathComponent(fileName)
+                do {
+                    try data.write(to: outURL)
+                    replyToWebView(callbackId: callbackId, result: "OK")
+                } catch {
+                    replyToWebView(callbackId: callbackId, result: error.localizedDescription)
+                }
+            } else {
+                replyToWebView(callbackId: callbackId, result: "Geçersiz PNG verisi")
+            }
+
+        case "insertLayer":
+            guard let fileName = body["fileName"] as? String,
+                  let displayName = body["displayName"] as? String,
+                  let b64 = body["pngBase64"] as? String,
+                  let data = Data(base64Encoded: b64) else {
+                replyToWebView(callbackId: callbackId, result: "Geçersiz katman verisi")
+                return
+            }
+            let outURL = shareDir.appendingPathComponent(fileName)
+            do {
+                try data.write(to: outURL)
+            } catch {
+                replyToWebView(callbackId: callbackId, result: error.localizedDescription)
+                return
+            }
+            let isLive = (body["isLivePreview"] as? Bool) ?? false
+            let cmd = isLive ? "initOrUpdateProgramMonitor" : "insertClipPermanent"
+            runResolveBridge(cmd: cmd, arg1: outURL.path, arg2: displayName) { [weak self] res in
+                self?.replyToWebView(callbackId: callbackId, result: res)
+            }
+
+        case "hostCommand":
+            let cmd = (body["cmd"] as? String) ?? ""
+            let args = (body["args"] as? [Any]) ?? []
+            let a1 = args.count > 0 ? String(describing: args[0]) : ""
+            let a2 = args.count > 1 ? String(describing: args[1]) : ""
+
+            runResolveBridge(cmd: cmd, arg1: a1, arg2: a2) { [weak self] res in
+                guard let self = self else { return }
+                if cmd == "captureFrameToTempPath",
+                   let rData = res.data(using: .utf8),
+                   var jsonObj = (try? JSONSerialization.jsonObject(with: rData)) as? [String: Any],
+                   let ok = jsonObj["ok"] as? Bool, ok,
+                   let framePath = jsonObj["path"] as? String,
+                   let imgData = try? Data(contentsOf: URL(fileURLWithPath: framePath)) {
+                    try? FileManager.default.removeItem(atPath: framePath)
+                    jsonObj["base64"] = imgData.base64EncodedString()
+                    if let updatedData = try? JSONSerialization.data(withJSONObject: jsonObj),
+                       let updatedStr = String(data: updatedData, encoding: .utf8) {
+                        self.replyToWebView(callbackId: callbackId, result: updatedStr)
+                        return
+                    }
+                }
+                self.replyToWebView(callbackId: callbackId, result: res)
+            }
+
+        default:
+            replyToWebView(callbackId: callbackId, result: "")
+        }
+    }
+
+    // MARK: - Directory Watcher & Menu Bar
 
     func setupDirectoryWatcher() {
         dirFD = open(shareDir.path, O_EVTONLY)
@@ -185,32 +394,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             statusItem.button?.imagePosition = .imageLeading
         }
         statusItem.button?.title = "Alptuguide"
-        statusItem.button?.toolTip = "Alptuguide™ 1:1 Safe-Zone & Overlay Studio"
+        statusItem.button?.toolTip = "Alptuguide™ Liquid Glass Studio & 1:1 Safe-Zone Overlay"
 
         let menu = NSMenu()
 
-        let headerItem = NSMenuItem(title: "Alptuguide™ Studio v3.0", action: nil, keyEquivalent: "")
+        let headerItem = NSMenuItem(title: "Alptuguide™ Liquid Glass Studio v3.1", action: nil, keyEquivalent: "")
         headerItem.isEnabled = false
         menu.addItem(headerItem)
         menu.addItem(.separator())
 
-        editItem = NSMenuItem(title: "Hizala / Boyutlandır (Düzenleme Modu)", action: #selector(toggleEdit), keyEquivalent: "e")
+        studioItem = NSMenuItem(title: "Studio Panelini Aç (Liquid Glass / DaVinci Resolve)", action: #selector(openStudioWindow), keyEquivalent: "o")
+        editItem = NSMenuItem(title: "Overlay'i Hizala / Boyutlandır", action: #selector(toggleEdit), keyEquivalent: "e")
         visibleItem = NSMenuItem(title: "Overlay'i Gizle", action: #selector(toggleVisible), keyEquivalent: "h")
         alwaysOnTopItem = NSMenuItem(title: "Her Uygulamada Göster (Standalone Mod)", action: #selector(toggleAlwaysShow), keyEquivalent: "a")
 
+        menu.addItem(studioItem)
+        menu.addItem(.separator())
         menu.addItem(editItem)
         menu.addItem(visibleItem)
         menu.addItem(alwaysOnTopItem)
-        menu.addItem(NSMenuItem(title: "Konumu Sıfırla", action: #selector(resetFrame), keyEquivalent: "r"))
+        menu.addItem(NSMenuItem(title: "Overlay Konumunu Sıfırla", action: #selector(resetFrame), keyEquivalent: "r"))
         menu.addItem(.separator())
 
-        // Platform Guide Selector
         let platformHeader = NSMenuItem(title: "1:1 Kılavuz Kaynağı", action: nil, keyEquivalent: "")
         platformHeader.isEnabled = false
         menu.addItem(platformHeader)
 
         let modes: [(GuideSourceMode, String, String)] = [
-            (.panelSync, "Adobe CEP Panel Canlı Senkron", "1"),
+            (.panelSync, "Studio Panel Canlı Senkron", "1"),
             (.reels, "Instagram Reels (1:1 Doğrulanmış)", "2"),
             (.tiktok, "TikTok (1:1 Doğrulanmış)", "3"),
             (.shorts, "YouTube Shorts (1:1 Doğrulanmış)", "4"),
@@ -227,7 +438,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         menu.addItem(.separator())
 
-        // Opacity Submenu
         let opacityMenu = NSMenu()
         for pct in [100, 80, 60, 40] {
             let opItem = NSMenuItem(title: "%\(pct)", action: #selector(selectOpacity(_:)), keyEquivalent: "")
@@ -300,6 +510,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             lastRev = rev
             if let v = s.visible { wantVisible = v }
             if let e = s.edit, e != editing { setEditing(e) }
+            if s.openStudio == true { openStudioWindow() }
         }
         updateVisibility()
     }
@@ -340,7 +551,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             }
         }
 
-        // Fallback to built-in 1:1 Reels guide if overlay.png does not exist yet
         if view.image == nil, let fallback = loadBundledGuide("reels") {
             view.image = fallback
             applyAspect()
@@ -387,8 +597,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         saveFrame()
     }
 
-    func windowDidMove(_ notification: Notification) { saveFrame() }
-    func windowDidResize(_ notification: Notification) { saveFrame(); view.needsDisplay = true }
+    func windowDidMove(_ notification: Notification) {
+        if (notification.object as? NSWindow) === window { saveFrame() }
+    }
+
+    func windowDidResize(_ notification: Notification) {
+        if (notification.object as? NSWindow) === window {
+            saveFrame()
+            view.needsDisplay = true
+        }
+    }
 
     func setEditing(_ on: Bool) {
         editing = on
@@ -398,7 +616,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.titleVisibility = .hidden
         window.ignoresMouseEvents = !on
         applyAspect()
-        editItem.title = on ? "Kilitle (Tıklamalar Geçsin)" : "Hizala / Boyutlandır (Düzenleme Modu)"
+        editItem.title = on ? "Kilitle (Tıklamalar Geçsin)" : "Overlay'i Hizala / Boyutlandır"
         if on {
             NSApp.activate(ignoringOtherApps: true)
             window.makeKeyAndOrderFront(nil)

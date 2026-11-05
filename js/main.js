@@ -1,5 +1,5 @@
 /**
- * Alptuguide™ Studio v3.0 — Main Controller
+ * Alptuguide™ Studio v3.1 — Main Controller
  * Copyright (c) 2026 Alptuğ Dağ (@alptugdag). All rights reserved.
  *
  * Clean, zero-lag, asynchronous architecture:
@@ -12,11 +12,47 @@
 (function () {
     'use strict';
 
-    var csInterface = (typeof CSInterface !== 'undefined') ? new CSInterface() : null;
+    var csInterface = (typeof CSInterface !== 'undefined' && (window.__adobe_cep__ || window.cep)) ? new CSInterface() : null;
     var fs = null;
     var path = null;
     var os = null;
     var childProcess = null;
+    var nativeCallSeq = 0;
+    var nativeCallbacks = {};
+
+    window.__alptuguideNativeCallback = function (id, resultStr) {
+        var cb = nativeCallbacks[id];
+        if (cb) {
+            delete nativeCallbacks[id];
+            cb(resultStr);
+        }
+    };
+
+    function hasNativeWebKitBridge() {
+        return Boolean(
+            window.webkit &&
+            window.webkit.messageHandlers &&
+            window.webkit.messageHandlers.alptuguide
+        );
+    }
+
+    function sendNativeMessage(payload, callback) {
+        if (!hasNativeWebKitBridge()) {
+            if (callback) callback('');
+            return;
+        }
+        var id = ++nativeCallSeq;
+        if (callback) {
+            nativeCallbacks[id] = callback;
+        }
+        payload.callbackId = id;
+        try {
+            window.webkit.messageHandlers.alptuguide.postMessage(payload);
+        } catch (e) {
+            delete nativeCallbacks[id];
+            if (callback) callback('');
+        }
+    }
 
     try {
         if (typeof require === 'function') {
@@ -200,14 +236,55 @@
         }, 3800);
     }
 
+    function parseScriptCall(script) {
+        var s = String(script || '').trim();
+        var m = s.match(/^([a-zA-Z0-9_]+)\((.*)\)$/);
+        if (!m) return { cmd: s, args: [] };
+        var cmd = m[1];
+        var rawArgs = m[2].trim();
+        if (!rawArgs) return { cmd: cmd, args: [] };
+        try {
+            var parsedArgs = JSON.parse('[' + rawArgs + ']');
+            return { cmd: cmd, args: parsedArgs };
+        } catch (e) {
+            return { cmd: cmd, args: [rawArgs.replace(/^"|"$/g, '')] };
+        }
+    }
+
+    function updateHostChips(host) {
+        var h = (host || state.hostApp || 'PPRO').toUpperCase();
+        var chipPpro = document.getElementById('chip-ppro');
+        var chipAeft = document.getElementById('chip-aeft');
+        var chipResolve = document.getElementById('chip-resolve');
+        var chipMacos = document.getElementById('chip-macos');
+        if (chipPpro) chipPpro.classList.toggle('active', h === 'PPRO');
+        if (chipAeft) chipAeft.classList.toggle('active', h === 'AEFT');
+        if (chipResolve) chipResolve.classList.toggle('active', h === 'RESOLVE');
+        if (chipMacos) chipMacos.classList.toggle('active', state.floatingOverlayVisible || h === 'MACOS');
+    }
+
     function evalExtendScript(script, callback) {
-        if (!csInterface) {
-            if (callback) callback('');
+        var parsed = parseScriptCall(script);
+        if (window.AlptuguideResolveBridge && typeof window.AlptuguideResolveBridge.evalCommand === 'function') {
+            var res = window.AlptuguideResolveBridge.evalCommand(parsed.cmd, parsed.args);
+            if (callback) setTimeout(function () { callback(res); }, 0);
             return;
         }
-        csInterface.evalScript(script, function (res) {
-            if (callback) callback(res);
-        });
+        if (csInterface) {
+            csInterface.evalScript(script, function (res) {
+                if (callback) callback(res);
+            });
+            return;
+        }
+        if (hasNativeWebKitBridge()) {
+            sendNativeMessage({
+                action: 'hostCommand',
+                cmd: parsed.cmd,
+                args: parsed.args
+            }, callback);
+            return;
+        }
+        if (callback) callback('');
     }
 
     function getSharedDir() {
@@ -290,7 +367,7 @@
         return Buffer.from(b64, 'base64');
     }
 
-    function exportTransparentPngBuffer(mode, width, height) {
+    function exportTransparentPngDataUrl(mode, width, height) {
         var w = width || state.seqWidth || 1080;
         var h = height || state.seqHeight || 1920;
         offscreenExportCanvas.width = w;
@@ -311,11 +388,32 @@
             renderToCanvas(offscreenExportCanvas, false, w, h);
         }
 
-        var dataUrl = offscreenExportCanvas.toDataURL('image/png');
+        return offscreenExportCanvas.toDataURL('image/png');
+    }
+
+    function exportTransparentPngBuffer(mode, width, height) {
+        var dataUrl = exportTransparentPngDataUrl(mode, width, height);
         return dataUrlToBuffer(dataUrl);
     }
 
     function publishToFloatingOverlay() {
+        if (hasNativeWebKitBridge() && !fs) {
+            state.floatingOverlayRev++;
+            var dataUrl = exportTransparentPngDataUrl('current', 1080, 1920);
+            sendNativeMessage({
+                action: 'publishOverlay',
+                pngBase64: dataUrl.split(',')[1] || '',
+                state: {
+                    visible: state.floatingOverlayVisible,
+                    edit: state.floatingOverlayEdit,
+                    host: state.hostApp || 'RESOLVE',
+                    platform: state.platform,
+                    rev: state.floatingOverlayRev,
+                    quit: false
+                }
+            });
+            return;
+        }
         if (!fs || !path) return;
         try {
             var shareDir = getSharedDir();
@@ -340,13 +438,6 @@
     }
 
     function launchFloatingOverlayApp(enableEditMode) {
-        if (!childProcess || !path || !os) {
-            showStatus('Masaüstü Overlay yalnızca macOS üzerinde desteklenir.', 'error');
-            return;
-        }
-        var shareDir = getSharedDir();
-        ensureDir(shareDir);
-
         if (enableEditMode) {
             state.floatingOverlayVisible = true;
             state.floatingOverlayEdit = true;
@@ -361,8 +452,31 @@
             btnLaunchOverlay.classList.toggle('active', state.floatingOverlayVisible);
             overlayBtnText.textContent = state.floatingOverlayVisible ? 'Ekran Üstü Overlay: Açık' : 'Ekran Üstü Overlay Aç';
         }
-
+        updateHostChips(state.hostApp);
         publishToFloatingOverlay();
+
+        if (hasNativeWebKitBridge() && !childProcess) {
+            sendNativeMessage({
+                action: 'toggleOverlay',
+                visible: state.floatingOverlayVisible,
+                edit: state.floatingOverlayEdit
+            });
+            if (enableEditMode) {
+                showStatus('Overlay hizalama modu açıldı (Kilitlemek için Enter\'a basın).', 'success');
+            } else if (state.floatingOverlayVisible) {
+                showStatus('Ekran üstü şeffaf Overlay aktif (Render\'a girmez).', 'success');
+            } else {
+                showStatus('Ekran üstü Overlay gizlendi.', 'success');
+            }
+            return;
+        }
+
+        if (!childProcess || !path || !os) {
+            showStatus('Masaüstü Overlay yalnızca macOS üzerinde desteklenir.', 'error');
+            return;
+        }
+        var shareDir = getSharedDir();
+        ensureDir(shareDir);
 
         var appCandidate1 = path.join(shareDir, 'Alptuguide Overlay.app');
         var appCandidate2 = '/Applications/Alptuguide.app';
@@ -431,8 +545,13 @@
                     if (seqDimText) {
                         seqDimText.textContent = state.seqWidth + ' × ' + state.seqHeight + ' px · ' + (data.name || 'Aktif Sekans');
                     }
+                    updateHostChips(state.hostApp);
                     updatePlatformUI();
                 } else if (data && data.message) {
+                    if (data.host) {
+                        state.hostApp = data.host;
+                        updateHostChips(state.hostApp);
+                    }
                     if (seqDimText) seqDimText.textContent = data.message;
                 }
             } catch (e) {}
@@ -514,6 +633,21 @@
             try {
                 var data = JSON.parse(res);
                 if (data && data.ok) {
+                    if (data.base64) {
+                        var imgB64 = new Image();
+                        imgB64.onload = function () {
+                            state.videoFrameImage = imgB64;
+                            scheduleRender(false);
+                            isCapturingFrame = false;
+                            if (liveBadgeText) liveBadgeText.textContent = 'Monitör: Canlı';
+                        };
+                        imgB64.onerror = function () {
+                            isCapturingFrame = false;
+                            if (liveBadgeText) liveBadgeText.textContent = 'Monitör: Hazır';
+                        };
+                        imgB64.src = 'data:image/png;base64,' + data.base64;
+                        return;
+                    }
                     var cands = data.candidates || (data.path ? [data.path] : []);
                     waitForPngAndLoad(cands, 22, 35, function (ok) {
                         isCapturingFrame = false;
@@ -560,8 +694,26 @@
     }
 
     function syncProgramMonitorLayer() {
-        if (!fs || !path) return;
         refreshSequenceMetadata(function () {
+            if (hasNativeWebKitBridge() && !fs) {
+                var dataUrl = exportTransparentPngDataUrl('current', state.seqWidth, state.seqHeight);
+                sendNativeMessage({
+                    action: 'insertLayer',
+                    fileName: 'Alptuguide_Live_Preview.png',
+                    displayName: 'Alptuguide Live Preview',
+                    pngBase64: dataUrl.split(',')[1] || '',
+                    isLivePreview: true
+                }, function (res) {
+                    if (res === 'OK') {
+                        showStatus('Monitör ve Sekans senkronize edildi.', 'success');
+                    } else if (res) {
+                        showStatus(res, 'error');
+                    }
+                    captureLiveFrameNow(true);
+                });
+                return;
+            }
+            if (!fs || !path) return;
             var shareDir = getSharedDir();
             ensureDir(shareDir);
             var liveFile = path.join(shareDir, 'Alptuguide_Live_Preview.png');
@@ -584,21 +736,40 @@
     }
 
     function insertLayerToTimeline(mode) {
-        if (!fs || !path) return;
         refreshSequenceMetadata(function () {
-            var shareDir = getSharedDir();
-            ensureDir(shareDir);
             var suffix = (mode === 'guides_only') ? ('Guides_' + state.platform.toUpperCase()) : ('Overlay_' + state.platform.toUpperCase());
             var fileName = 'Alptuguide_' + suffix + '_' + state.seqWidth + 'x' + state.seqHeight + '.png';
+            var label = (mode === 'guides_only')
+                ? ('Alptuguide 1:1 Kılavuz (' + state.platform.toUpperCase() + ')')
+                : ('Alptuguide Overlay (' + state.platform.toUpperCase() + ')');
+
+            if (hasNativeWebKitBridge() && !fs) {
+                var dataUrl = exportTransparentPngDataUrl(mode, state.seqWidth, state.seqHeight);
+                sendNativeMessage({
+                    action: 'insertLayer',
+                    fileName: fileName,
+                    displayName: label,
+                    pngBase64: dataUrl.split(',')[1] || '',
+                    isLivePreview: false
+                }, function (res) {
+                    if (res === 'OK') {
+                        showStatus(label + ' timeline\'a eklendi (' + state.seqWidth + '×' + state.seqHeight + ').', 'success');
+                    } else {
+                        showStatus(res || 'Timeline\'a eklenemedi.', 'error');
+                    }
+                });
+                return;
+            }
+
+            if (!fs || !path) return;
+            var shareDir = getSharedDir();
+            ensureDir(shareDir);
             var outPath = path.join(shareDir, fileName);
 
             try {
                 var buf = exportTransparentPngBuffer(mode, state.seqWidth, state.seqHeight);
                 fs.writeFileSync(outPath, buf);
                 var escaped = outPath.replace(/\\/g, '/');
-                var label = (mode === 'guides_only')
-                    ? ('Alptuguide 1:1 Kılavuz (' + state.platform.toUpperCase() + ')')
-                    : ('Alptuguide Overlay (' + state.platform.toUpperCase() + ')');
 
                 evalExtendScript('insertClipPermanent("' + escaped + '", "' + label + '")', function (res) {
                     if (res === 'OK') {
@@ -614,10 +785,25 @@
     }
 
     function exportPngToDesktop() {
+        var fileName = 'Alptuguide_' + state.platform + '_' + state.seqWidth + 'x' + state.seqHeight + '_' + Date.now() + '.png';
+        if (hasNativeWebKitBridge() && !fs) {
+            var dataUrl = exportTransparentPngDataUrl('current', state.seqWidth, state.seqHeight);
+            sendNativeMessage({
+                action: 'exportDesktop',
+                fileName: fileName,
+                pngBase64: dataUrl.split(',')[1] || ''
+            }, function (res) {
+                if (res === 'OK') {
+                    showStatus('Masaüstüne kaydedildi: ' + fileName, 'success');
+                } else {
+                    showStatus(res || 'PNG kaydetme hatası.', 'error');
+                }
+            });
+            return;
+        }
         if (!fs || !path || !os) return;
         try {
             var desktopDir = path.join(os.homedir(), 'Desktop');
-            var fileName = 'Alptuguide_' + state.platform + '_' + state.seqWidth + 'x' + state.seqHeight + '_' + Date.now() + '.png';
             var outPath = path.join(desktopDir, fileName);
             var buf = exportTransparentPngBuffer('current', state.seqWidth, state.seqHeight);
             fs.writeFileSync(outPath, buf);

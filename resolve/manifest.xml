@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<BlackmagicDesign>
+    <Plugin>
+        <Id>com.alptug.alptuguide</Id>
+        <Name>Alptuguide Studio</Name>
+        <Version>3.1.0</Version>
+        <Description>Alptuguide™ Studio — 1:1 Safe-Zone &amp; Liquid Glass UI Overlay for DaVinci Resolve</Description>
+        <FilePath>resolve/resolve_main.js</FilePath>
+    </Plugin>
+</BlackmagicDesign>

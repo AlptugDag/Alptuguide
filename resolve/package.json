@@ -1,0 +1,8 @@
+{
+  "name": "alptuguide-resolve",
+  "productName": "Alptuguide Studio",
+  "version": "3.1.0",
+  "description": "Alptuguide™ Studio — 1:1 Safe-Zone & Liquid Glass UI Overlay for DaVinci Resolve",
+  "main": "resolve/resolve_main.js",
+  "author": "Alptuğ Dağ (@alptugdag)"
+}

@@ -1,4 +1,4 @@
-// Host script for Alptuguide v3.0 (Zero-Stutter Dual Host: Adobe Premiere Pro & Adobe After Effects)
+// Host script for Alptuguide v3.1 (Zero-Stutter Dual Host: Adobe Premiere Pro & Adobe After Effects)
 
 var _cachedHostApp = null;
 var _qeEnabled = false;

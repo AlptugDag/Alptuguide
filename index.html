@@ -20,6 +20,9 @@
             <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
             <symbol id="i-save" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></symbol>
             <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></symbol>
+            <symbol id="i-play" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3" fill="currentColor"/></symbol>
+            <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" fill="currentColor"/><rect x="14" y="4" width="4" height="16" fill="currentColor"/></symbol>
+            <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></symbol>
         </defs>
     </svg>
 
@@ -43,17 +46,56 @@
         <button type="button" class="seg-btn" data-platform="all" title="3 platformun en sıkı ortak kesişimi">Ortak</button>
     </nav>
 
-    <!-- Master Monitor Switch: Directly on Program Monitor / Viewer (Never exported, Zero timeline clips) -->
-    <section class="monitor-card">
-        <button type="button" class="btn-monitor" id="btn-monitor" aria-pressed="false">
-            <div class="monitor-icon-wrap">
-                <svg class="ico"><use href="#i-eye"/></svg>
+    <!-- Native Smartphone Mockup Viewport (Zero Timeline Writes, Zero Temp Files) -->
+    <section class="mockup-section">
+        <div class="mockup-header">
+            <div class="mockup-title-wrap">
+                <span class="mockup-live-dot"></span>
+                <strong>CANLI TELEFON MOCKUP</strong>
             </div>
-            <div class="btn-monitor-text">
-                <strong id="monitor-title">Program Monitöründe Göster</strong>
-                <small id="monitor-sub">Sıfır timeline izi · Monitör kılavuzu</small>
+            <div class="mockup-actions">
+                <button type="button" class="btn-mockup-action" id="btn-sync-timeline" title="Premiere Pro CTI (İmleç) ile anında eşitle">
+                    <svg class="ico"><use href="#i-refresh"/></svg>
+                    <span>Timeline Eşitle</span>
+                </button>
+                <button type="button" class="btn-mockup-action" id="btn-play-pause" title="Oynat / Duraklat (Boşluk tuşu)">
+                    <svg class="ico" id="play-pause-icon"><use href="#i-play"/></svg>
+                    <span id="play-pause-text">Oynat</span>
+                </button>
             </div>
-        </button>
+        </div>
+
+        <div class="phone-frame-container">
+            <div class="phone-frame" id="phone-frame-target" title="Oynatmak / duraklatmak için tıklayın">
+                <!-- Outer Titanium Dynamic Island -->
+                <div class="phone-speaker-dynamic-island">
+                    <span class="sensor-cam"></span>
+                </div>
+
+                <!-- Phone Screen -->
+                <div class="phone-screen" id="phone-screen">
+                    <!-- HTML5 Hardware Accelerated Video (Zero Disk I/O, Direct Local GPU) -->
+                    <video id="mockup-video" muted playsinline loop></video>
+                    <!-- Fallback placeholder if no video loaded -->
+                    <div class="mockup-placeholder" id="mockup-placeholder">
+                        <svg class="ico lg"><use href="#i-reframe"/></svg>
+                        <span>Video Bekleniyor</span>
+                        <small>Premiere'deki video doğrudan GPU ile oynatılır</small>
+                    </div>
+                    <!-- Live Overlay Canvas: Safe Zones + Social Interface + Guides -->
+                    <canvas id="mockup-canvas"></canvas>
+                </div>
+
+                <!-- Home Bar Indicator -->
+                <div class="phone-home-bar"></div>
+            </div>
+        </div>
+
+        <!-- Timecode / Status line under mockup -->
+        <div class="mockup-footer">
+            <span id="mockup-timecode">00:00:00 / 00:00:00</span>
+            <span id="mockup-file-label">Medya bekleniyor…</span>
+        </div>
     </section>
 
     <!-- Guide Overlay Layer Controls -->

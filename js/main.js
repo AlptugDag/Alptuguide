@@ -218,10 +218,18 @@
         return { w: Math.max(2, Math.round(sw * k)), h: Math.max(2, Math.round(sh * k)) };
     }
 
+    function renderMockup() {
+        var canvas = $('mockup-canvas');
+        if (!canvas) return;
+        var w = runtime.seq.width || 1080;
+        var h = runtime.seq.height || 1920;
+        compose(canvas, w, h, 'current');
+    }
+
     function scheduleRender(changed) {
+        renderMockup();
         if (changed !== false) {
             schedulePersist();
-            if (runtime.monitorOn) schedulePublish();
         }
     }
 
@@ -247,112 +255,77 @@
         } catch (e) {}
     }
 
-    // ------------------------------------------------------------------ Program Monitor Guide
-    function ensureShareDir() {
-        if (!fs || !SHARE_DIR) return false;
-        try { if (!fs.existsSync(SHARE_DIR)) fs.mkdirSync(SHARE_DIR, { recursive: true }); return true; }
-        catch (e) { return false; }
-    }
-
-    var offscreen = document.createElement('canvas');
-    function overlayPng(mode, maxEdge) {
-        var s = outputSize(maxEdge);
-        compose(offscreen, s.w, s.h, mode || 'current');
-        return offscreen.toDataURL('image/png');
-    }
-    function writePng(filePath, dataUrl) {
-        fs.writeFileSync(filePath, Buffer.from(dataUrl.slice(dataUrl.indexOf(',') + 1), 'base64'));
-    }
-
-    var publishTimer = 0;
-    function schedulePublish() {
-        clearTimeout(publishTimer);
-        publishTimer = setTimeout(function () { publish(false); }, runtime.host === 'AEFT' ? 350 : 150);
-    }
-
-    // Program Monitöründe Kılavuz Gösterme (Canlı Senkron & Kilitli Katman)
-    function publish(edit, done) {
-        if (runtime.host === 'PPRO') {
-            if (!ensureShareDir()) { toast('Dosya erişimi yok.', true); if (done) done(false); return; }
-            var pproPath = path.join(SHARE_DIR, 'Alptuguide_PPRO_Guide.png');
-            if (runtime.monitorOn) {
-                var pw = Math.max(runtime.seq.width || 1080, 1080);
-                var ph = Math.max(runtime.seq.height || 1920, 1920);
-                writePng(pproPath, overlayPng('current', Math.max(pw, ph)));
-            }
-            callHost('setPremiereGuide', [pproPath, runtime.monitorOn], function (res) {
-                if (res && String(res).indexOf('Hata') === 0) toast(res, true);
-                if (done) done(res === 'OK');
-            });
-            return;
-        }
-
-        if (runtime.host === 'AEFT') {
-            if (!ensureShareDir()) { toast('Dosya erişimi yok.', true); return; }
-            var aePath = path.join(SHARE_DIR, 'Alptuguide_AE_Guide.png');
-            if (runtime.monitorOn) writePng(aePath, overlayPng('current', Math.max(runtime.seq.width || 1080, runtime.seq.height || 1920)));
-            callHost('setCompGuide', [aePath, runtime.monitorOn], function (res) {
-                if (res !== 'OK' && res) toast(res, true);
-                if (done) done(res === 'OK');
-            });
-            return;
-        }
-
-        if (runtime.host === 'RESOLVE') {
-            if (ensureShareDir()) {
-                var resPath = path.join(SHARE_DIR, 'Alptuguide_Resolve_Guide.png');
-                if (runtime.monitorOn) writePng(resPath, overlayPng('current', Math.max(runtime.seq.width || 1080, runtime.seq.height || 1920)));
-                callHost('setMonitorGuide', [resPath, runtime.monitorOn], function (res) {
-                    if (res !== 'OK' && res) toast(res, true);
-                    if (done) done(res === 'OK');
-                });
+    // ------------------------------------------------------------------ Native Smartphone Mockup Engine
+    // Sıfır disk I/O, sıfır geçici dosya. Yerel videoyu doğrudan GPU donanım hızlandırmasıyla oynatır.
+    function syncMockupFootage(notify) {
+        callHost('getActiveFootageInfo', [], function (res) {
+            var d = null;
+            try { d = typeof res === 'string' ? JSON.parse(res) : res; } catch (e) {}
+            if (!d || !d.ok) {
+                if (notify) toast('Sekans veya video bulunamadı.', true);
                 return;
             }
-            if (hasNative()) {
-                sendNative({
-                    action: 'insertLayer',
-                    fileName: 'Alptuguide_Resolve_Guide.png',
-                    displayName: '[Alptuguide Kılavuz]',
-                    pngBase64: runtime.monitorOn ? overlayPng('current', 1920).split(',')[1] : '',
-                    isLivePreview: true
-                });
-            }
-            if (done) done(true);
-            return;
-        }
 
-        if (done) done(true);
-    }
+            var video = $('mockup-video');
+            var placeholder = $('mockup-placeholder');
+            var fileLabel = $('mockup-file-label');
 
-    function setMonitor(on) {
-        runtime.monitorOn = on;
-        updateMonitorButton();
-        publish(false, function (ok) {
-            if (!ok) return;
-            if (runtime.host === 'AEFT') {
-                toast(on ? 'Kılavuz Composition\'a eklendi (Guide Layer · render\'a girmez).' : 'Kılavuz gizlendi.');
-            } else if (runtime.host === 'RESOLVE') {
-                toast(on ? 'DaVinci Viewer kılavuzu etkinleştirildi.' : 'Kılavuz gizlendi.');
+            if (d.mediaPath) {
+                var fileUrl = 'file://' + encodeURI(d.mediaPath).replace(/#/g, '%23');
+                if (video.getAttribute('data-raw-src') !== d.mediaPath) {
+                    video.setAttribute('data-raw-src', d.mediaPath);
+                    video.src = fileUrl;
+                    video.load();
+                }
+                if (typeof d.sourceTime === 'number' && !isNaN(d.sourceTime)) {
+                    try { video.currentTime = d.sourceTime; } catch (tErr) {}
+                }
+                video.style.display = 'block';
+                if (placeholder) placeholder.style.display = 'none';
+                if (fileLabel) fileLabel.textContent = d.mediaPath.split('/').pop() || d.clipName || 'ddd.mp4';
+                updateTimecodeDisplay(d.playerPos || 0, d.duration || video.duration || 0);
+                if (notify) toast('Timeline ile eşitlendi: ' + (d.clipName || 'Klip') + ' @ ' + fmtDur(d.playerPos));
             } else {
-                toast(on ? 'Program Monitöründe gösteriliyor (Kilitli Kılavuz · Render Dışı).' : 'Monitör kılavuzları gizlendi.');
+                video.style.display = 'none';
+                if (placeholder) placeholder.style.display = 'flex';
+                if (fileLabel) fileLabel.textContent = d.seqName || 'Sekans';
+                if (notify) toast('Sekansta video klibi bulunamadı.', true);
             }
+            renderMockup();
         });
     }
 
-    function updateMonitorButton() {
-        var btn = $('btn-monitor');
-        if (!btn) return;
-        btn.classList.toggle('on', runtime.monitorOn);
-        btn.setAttribute('aria-pressed', String(runtime.monitorOn));
-        var ico = btn.querySelector('use');
-        if (ico) ico.setAttribute('href', runtime.monitorOn ? '#i-eye' : '#i-eye-off');
-        var target = runtime.host === 'AEFT' ? 'Composition\'da' : 'Program Monitöründe';
-        var tEl = $('monitor-title');
-        if (tEl) tEl.textContent = runtime.monitorOn ? target + ' Gösteriliyor' : target + ' Göster';
-        var sEl = $('monitor-sub');
-        if (sEl) sEl.textContent = runtime.host === 'AEFT'
-            ? 'Guide Layer · Render\'a girmez'
-            : 'Sıfır timeline izi · Monitör kılavuzu';
+    function togglePlayback() {
+        var video = $('mockup-video');
+        var btn = $('btn-play-pause');
+        var ico = $('play-pause-icon');
+        var txt = $('play-pause-text');
+        if (!video) return;
+
+        if (video.paused) {
+            video.play().then(function () {
+                if (btn) btn.classList.add('active');
+                if (txt) txt.textContent = 'Duraklat';
+                if (ico) {
+                    var use = ico.querySelector('use');
+                    if (use) use.setAttribute('href', '#i-pause');
+                }
+            }).catch(function (e) {});
+        } else {
+            video.pause();
+            if (btn) btn.classList.remove('active');
+            if (txt) txt.textContent = 'Oynat';
+            if (ico) {
+                var use = ico.querySelector('use');
+                if (use) use.setAttribute('href', '#i-play');
+            }
+        }
+    }
+
+    function updateTimecodeDisplay(cur, total) {
+        var tc = $('mockup-timecode');
+        if (!tc) return;
+        tc.textContent = fmtDur(cur) + ' / ' + fmtDur(total);
     }
 
     // ------------------------------------------------------------------ Sequence Info
@@ -404,7 +377,7 @@
         updateSeqChip();
         var sizeChanged = prev.width !== runtime.seq.width || prev.height !== runtime.seq.height;
         if (sizeChanged) scheduleRender(false);
-        if (sizeChanged && runtime.monitorOn) schedulePublish();
+        syncMockupFootage(false);
     }
 
     function refreshSequence(notify) {
@@ -600,10 +573,48 @@
             });
         }
 
-        var monBtn = $('btn-monitor');
-        if (monBtn) {
-            monBtn.addEventListener('click', function () { setMonitor(!runtime.monitorOn); });
+        var syncBtn = $('btn-sync-timeline');
+        if (syncBtn) {
+            syncBtn.addEventListener('click', function () { syncMockupFootage(true); });
         }
+
+        var playPauseBtn = $('btn-play-pause');
+        if (playPauseBtn) {
+            playPauseBtn.addEventListener('click', togglePlayback);
+        }
+
+        var phoneScreen = $('phone-screen');
+        if (phoneScreen) {
+            phoneScreen.addEventListener('click', togglePlayback);
+        }
+
+        var videoEl = $('mockup-video');
+        if (videoEl) {
+            videoEl.addEventListener('timeupdate', function () {
+                updateTimecodeDisplay(videoEl.currentTime, videoEl.duration || runtime.seq.duration || 0);
+            });
+            videoEl.addEventListener('ended', function () {
+                var btn = $('btn-play-pause');
+                var ico = $('play-pause-icon');
+                var txt = $('play-pause-text');
+                if (btn) btn.classList.remove('active');
+                if (txt) txt.textContent = 'Oynat';
+                if (ico) {
+                    var use = ico.querySelector('use');
+                    if (use) use.setAttribute('href', '#i-play');
+                }
+            });
+        }
+
+        window.addEventListener('keydown', function (e) {
+            if (e.code === 'Space') {
+                var tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+                if (tag !== 'input' && tag !== 'textarea' && tag !== 'select') {
+                    e.preventDefault();
+                    togglePlayback();
+                }
+            }
+        });
 
         var seqChip = $('seq-chip');
         if (seqChip) {
@@ -769,13 +780,33 @@
 
         window.addEventListener('focus', function () {
             refreshSequence(false);
+            syncMockupFootage(false);
         });
 
         if (csInterface) {
             try {
-                csInterface.addEventListener('com.adobe.csxs.events.SequenceChanged', function () { refreshSequence(false); });
-                csInterface.addEventListener('com.adobe.csxs.events.ActiveSequenceChanged', function () { refreshSequence(false); });
+                csInterface.addEventListener('com.adobe.csxs.events.SequenceChanged', function () {
+                    refreshSequence(false);
+                    syncMockupFootage(false);
+                });
+                csInterface.addEventListener('com.adobe.csxs.events.ActiveSequenceChanged', function () {
+                    refreshSequence(false);
+                    syncMockupFootage(false);
+                });
             } catch (e) {}
+        }
+    }
+
+    function loadHostScript(done) {
+        if (!csInterface) { if (done) done(); return; }
+        try {
+            var extPath = csInterface.getSystemPath(SystemPath.EXTENSION);
+            var jsxPath = extPath + '/jsx/hostscript.jsx';
+            csInterface.evalScript('$.evalFile("' + jsxPath.replace(/\\/g, '/') + '")', function () {
+                if (done) done();
+            });
+        } catch (e) {
+            if (done) done();
         }
     }
 
@@ -783,10 +814,13 @@
     function init() {
         loadPersisted();
         syncInputs();
-        updateMonitorButton();
         updateToolAvailability();
         bindEvents();
-        refreshSequence(false);
+        renderMockup();
+        loadHostScript(function () {
+            refreshSequence(false);
+            syncMockupFootage(false);
+        });
         connectToMekGateway();
     }
 

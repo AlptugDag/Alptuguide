@@ -145,17 +145,15 @@ function setCompGuide(filePath, enable) {
     }
 }
 
-// Premiere Pro Program Monitor Doğrudan Kılavuz Entegrasyonu
-// Sekansın en üst video kanalına kılavuzu ekler; render'a girmez / tek tıkla gizlenir.
-// Premiere Pro Program Monitor Doğrudan Kılavuz Entegrasyonu
-// Sekansın en üst video kanalına kilitli kılavuz ekler; render'a girmez / tek tıkla gizlenir / timeline kurgusuna asla karışmaz.
+// Premiere Pro Program Monitor Temizliği & Canlı Telefon Mockup Bilgi Köprüsü
+// Kullanıcı isteği: Timeline'a kesinlikle klip eklenmez, sıfır geçici dosya.
 function setPremiereGuide(filePath, enable) {
     try {
         var proj = app.project;
-        if (!proj || !proj.activeSequence) return "Lütfen bir sekans açın.";
+        if (!proj || !proj.activeSequence) return "OK";
         var seq = proj.activeSequence;
 
-        // 1. Önceki Alptuguide kılavuz kliplerini bul ve temizle
+        // Önceki Alptuguide kılavuz artıklarını güvenle temizle
         for (var t = 0; t < seq.videoTracks.numTracks; t++) {
             var trk = seq.videoTracks[t];
             for (var c = trk.clips.numItems - 1; c >= 0; c--) {
@@ -171,92 +169,96 @@ function setPremiereGuide(filePath, enable) {
                 }
             }
         }
-
-        if (!enable) return "OK";
-
-        var fileObj = new File(filePath);
-        if (!fileObj.exists) return "Dosya bulunamadı: " + filePath;
-
-        // Proje içinde mevcut öğeyi ara veya içe aktar
-        var item = null;
-        for (var i = proj.rootItem.children.numItems - 1; i >= 0; i--) {
-            var child = proj.rootItem.children[i];
-            if (child && child.name === fileObj.name) {
-                item = child;
-                break;
-            }
-        }
-        if (!item) {
-            if (!proj.importFiles([fileObj.fsName], true, proj.rootItem, false)) {
-                return "İçe aktarma başarısız.";
-            }
-            for (var i = proj.rootItem.children.numItems - 1; i >= 0; i--) {
-                var child = proj.rootItem.children[i];
-                if (child && child.name === fileObj.name) {
-                    item = child;
-                    break;
-                }
-            }
-        } else {
-            // RAM cache bypass: Dosyayı diskten anında yenile
-            try { item.refreshMedia(); } catch (rErr) {}
-        }
-        if (!item) return "Kılavuz öğesi bulunamadı.";
-
-        var numTracks = seq.videoTracks.numTracks;
-        if (!numTracks) return "Video kanalı yok.";
-
-        // Kullanıcının kurgusunu kesinlikle bozmamak için boş bir üst kanal seç
-        var targetTrack = null;
-        for (var t = numTracks - 1; t >= 0; t--) {
-            if (seq.videoTracks[t].clips.numItems === 0) {
-                targetTrack = seq.videoTracks[t];
-                break;
-            }
-        }
-
-        // Boş kanal yoksa en üste yeni 1 kanal ekle
-        if (!targetTrack) {
-            try {
-                app.enableQE();
-                if (typeof qe !== "undefined" && qe.project) {
-                    var qeSeq = qe.project.getActiveSequence();
-                    if (qeSeq && typeof qeSeq.addTracks === "function") {
-                        qeSeq.addTracks(1, numTracks, 0, 0);
-                        numTracks = seq.videoTracks.numTracks;
-                        targetTrack = seq.videoTracks[numTracks - 1];
-                    }
-                }
-            } catch (qeErr) {}
-        }
-
-        if (!targetTrack) {
-            targetTrack = seq.videoTracks[numTracks - 1];
-        }
-
-        targetTrack.setLocked(false);
-        var startPos = new Time();
-        startPos.seconds = 0;
-        targetTrack.overwriteClip(item, startPos);
-
-        for (var c = 0; c < targetTrack.clips.numItems; c++) {
-            var clip = targetTrack.clips[c];
-            if (clip.projectItem && clip.projectItem.name === fileObj.name) {
-                clip.name = "[Alptuguide Kılavuz (Render Dışı)]";
-                if (typeof clip.setScaleToFrameSize === "function") {
-                    try { clip.setScaleToFrameSize(); } catch (sErr) {}
-                }
-                if (seq.end && clip.end) {
-                    try { clip.end = seq.end; } catch (eDur) {}
-                }
-                break;
-            }
-        }
-        // Kullanıcının kurgusuna ve razor aracına asla takılmaması için kanalı kilitle
-        try { targetTrack.setLocked(true); } catch (lErr) {}
         return "OK";
     } catch (e) {
-        return "Hata: " + e.toString();
+        return "OK";
+    }
+}
+
+// Aktif sekansın CTI (playhead) altındaki gerçek medya dosyasını ve zamanlamasını döner.
+// Hiçbir geçici dosya yazmaz, Premiere'i yormaz, doğrudan yerel video dosyasını GPU için verir.
+function getActiveFootageInfo() {
+    try {
+        var host = getHostApp();
+        if (host !== "PPRO") return _json({ ok: false, message: "PPRO değil" });
+        if (!app.project) return _json({ ok: false, message: "Proje açık değil" });
+        var seq = app.project.activeSequence;
+        if (!seq) return _json({ ok: false, message: "Aktif sekans yok" });
+
+        var playerPos = 0;
+        try { playerPos = Number(seq.getPlayerPosition().seconds) || 0; } catch (pErr) {}
+
+        var w = Number(seq.frameSizeHorizontal) || 1080;
+        var h = Number(seq.frameSizeVertical) || 1920;
+        var dur = 0;
+        try { dur = (Number(seq.end) - Number(seq.zeroPoint || 0)) / TICKS_PER_SECOND; } catch (dErr) {}
+        if (!(dur >= 0)) dur = 0;
+
+        function isVideoPath(p) {
+            if (!p) return false;
+            var ext = String(p).toLowerCase().split(".").pop();
+            return (ext === "mp4" || ext === "mov" || ext === "m4v" || ext === "webm" || ext === "mxf" || ext === "avi");
+        }
+
+        var targetItem = null;
+        var fallbackVideo = null;
+        var fallbackAny = null;
+
+        // 1. Playhead altındaki klipleri tara (video dosyalarına öncelik ver)
+        for (var t = seq.videoTracks.numTracks - 1; t >= 0; t--) {
+            var trk = seq.videoTracks[t];
+            for (var c = 0; c < trk.clips.numItems; c++) {
+                try {
+                    var clp = trk.clips[c];
+                    var media = "";
+                    try { if (clp.projectItem) media = clp.projectItem.getMediaPath(); } catch (mErr) {}
+                    if (!media) continue;
+
+                    var s = clp.start ? Number(clp.start.seconds) : 0;
+                    var e = clp.end ? Number(clp.end.seconds) : 0;
+                    var inp = clp.inPoint ? Number(clp.inPoint.seconds) : 0;
+                    var cand = {
+                        media: media,
+                        clipName: clp.name || "",
+                        sourceTime: (playerPos - s) + inp,
+                        isVideo: isVideoPath(media)
+                    };
+
+                    if (!fallbackAny) fallbackAny = cand;
+                    if (cand.isVideo && !fallbackVideo) fallbackVideo = cand;
+
+                    if (playerPos >= s && playerPos <= e) {
+                        if (cand.isVideo) {
+                            targetItem = cand;
+                            break;
+                        } else if (!targetItem) {
+                            targetItem = cand;
+                        }
+                    }
+                } catch (cErr) {}
+            }
+            if (targetItem && targetItem.isVideo) break;
+        }
+
+        // Eğer playhead boşluktaysa (gap) veya video klip bulunamadıysa fallback kullan
+        var chosen = targetItem || fallbackVideo || fallbackAny;
+        if (!chosen) {
+            return _json({ ok: false, message: "Sekansta medya bulunamadı" });
+        }
+
+        return _json({
+            ok: true,
+            mediaPath: chosen.media,
+            playerPos: playerPos,
+            sourceTime: chosen.sourceTime >= 0 ? chosen.sourceTime : 0,
+            clipName: chosen.clipName,
+            width: w,
+            height: h,
+            duration: dur,
+            seqName: seq.name
+        });
+    } catch (e) {
+        return _json({ ok: false, message: e.toString() });
     }
 }
 

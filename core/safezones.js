@@ -232,28 +232,33 @@
         }
         ctx.globalAlpha = alpha;
 
-        // 1. Draw all platform danger / warning / crop / nav zones
-        spec.zones.forEach(function (z) {
-            drawZoneBox(ctx, z, showLabels);
-        });
+        // 1. Draw platform danger / warning / crop / nav zones (if UI boxes enabled)
+        if (opts.showUiBoxes !== false) {
+            spec.zones.forEach(function (z) {
+                drawZoneBox(ctx, z, showLabels);
+            });
+        }
 
-        // 2. Draw Organic Safe Boundary (Cyan-Emerald outer safe frame down to organic UI top)
-        ctx.save();
-        ctx.setLineDash([14, 8]);
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = '#38bdf8';
-        ctx.strokeRect(rOrg.x, rOrg.y, rOrg.w, rOrg.organicH);
-        ctx.setLineDash([]);
-        ctx.restore();
+        // 2. Draw Organic & Guaranteed Safe Boundaries (if Safe Zones enabled)
+        if (opts.showSafeZones !== false) {
+            ctx.save();
+            ctx.setLineDash([14, 8]);
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#38bdf8';
+            ctx.strokeRect(rOrg.x, rOrg.y, rOrg.w, rOrg.organicH);
+            ctx.setLineDash([]);
+            ctx.restore();
 
-        // 3. Draw Primary 100% Guaranteed Safe Zone Box (Neon Emerald)
-        ctx.save();
-        ctx.lineWidth = 4.5;
-        ctx.strokeStyle = '#10b981';
-        ctx.shadowColor = 'rgba(16, 185, 129, 0.65)';
-        ctx.shadowBlur = 12;
-        ctx.strokeRect(rFull.x, rFull.y, rFull.w, rFull.h);
-        ctx.shadowBlur = 0;
+            // Primary Guaranteed Safe Zone Box (Neon Emerald)
+            ctx.save();
+            ctx.lineWidth = 4.5;
+            ctx.strokeStyle = '#10b981';
+            ctx.shadowColor = 'rgba(16, 185, 129, 0.65)';
+            ctx.shadowBlur = 12;
+            ctx.strokeRect(rFull.x, rFull.y, rFull.w, rFull.h);
+            ctx.shadowBlur = 0;
+            ctx.restore();
+        }
 
         // Rule-of-thirds subtle grid inside the guaranteed safe zone
         ctx.strokeStyle = 'rgba(16, 185, 129, 0.22)';

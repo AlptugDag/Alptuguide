@@ -324,6 +324,100 @@ button {
     color: var(--text-muted);
 }
 
+/* ------------------------------------------------------------------ Fold Accordion (Social UI Settings) */
+.fold {
+    padding: 0;
+    overflow: hidden;
+}
+
+.fold summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 10px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.fold summary::-webkit-details-marker { display: none; }
+.fold .chev { color: var(--text-muted); transition: transform 0.15s ease; }
+.fold[open] .chev { transform: rotate(180deg); }
+.fold-body { display: flex; flex-direction: column; gap: 7px; padding: 2px 10px 10px; }
+
+.row { display: flex; gap: 6px; align-items: center; }
+.chips-row { display: flex; gap: 6px; }
+.chips-row .chip { flex: 1; }
+
+.field {
+    width: 100%;
+    min-width: 0;
+    padding: 5px 8px;
+    border-radius: var(--radius-sm);
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid var(--card-border);
+    outline: none;
+    color: var(--text);
+    font-size: 11px;
+    user-select: text;
+}
+
+.field:focus { border-color: var(--accent-blue); }
+select.field { flex: 1; cursor: pointer; }
+textarea.field { resize: vertical; min-height: 42px; font-family: inherit; }
+
+.prefix { display: flex; align-items: center; gap: 4px; padding: 0 8px; flex: 1; }
+.prefix span { color: var(--text-muted); font-weight: 600; }
+.prefix input { flex: 1; min-width: 0; background: none; border: none; outline: none; padding: 5px 0; color: var(--text); font-size: 11px; user-select: text; }
+
+.avatar {
+    position: relative;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    cursor: pointer;
+    border: 1px solid var(--card-border);
+}
+
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
+.avatar .ico { position: absolute; inset: 0; margin: auto; opacity: 0; color: #ffffff; width: 14px; height: 14px; }
+.avatar:hover .ico { opacity: 1; }
+.avatar:hover img { filter: brightness(0.45); }
+
+.metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(65px, 1fr));
+    gap: 6px;
+}
+
+.metrics label {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 10px;
+    color: var(--text-muted);
+}
+
+.btn-icon.sm {
+    width: 26px;
+    height: 26px;
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--card-border);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+}
+
+.btn-icon.sm:hover { background: rgba(255, 255, 255, 0.1); color: var(--text); }
+.btn-icon.sm.danger:hover { background: var(--danger-bg); border-color: rgba(239, 68, 68, 0.4); color: #fca5a5; }
+
 /* ------------------------------------------------------------------ Pro Editor Tools */
 .tools-grid {
     display: grid;

@@ -3,7 +3,7 @@
  * Copyright (c) 2026 Alptuğ Dağ (@alptugdag). All rights reserved.
  *
  * Fully integrated directly into:
- *  - Adobe Premiere Pro (Program Monitor)
+ *  - Adobe Premiere Pro (Program Monitor Native Guides + Mek Live Bridge)
  *  - Adobe After Effects (Comp Viewer Guide Layer)
  *  - DaVinci Resolve (Timeline Viewer)
  */
@@ -15,12 +15,13 @@
     var csInterface = (typeof CSInterface !== 'undefined' && root && (root.__adobe_cep__ || root.cep)) ? new CSInterface() : null;
     var nodeRequire = (typeof require === 'function') ? require
         : (root && root.cep_node && typeof root.cep_node.require === 'function') ? root.cep_node.require : null;
-    var fs = null, path = null, os = null;
+    var fs = null, path = null, os = null, net = null;
     try {
         if (nodeRequire) {
             fs = nodeRequire('fs');
             path = nodeRequire('path');
             os = nodeRequire('os');
+            net = nodeRequire('net');
         }
     } catch (e) {}
 
@@ -65,17 +66,19 @@
     var SHARE_DIR = (os && path) ? path.join(os.homedir(), 'Library', 'Application Support', 'Alptuguide') : null;
 
     // ------------------------------------------------------------------ State
+    var DEFAULT_CAPTION = 'Bu eklenti @alptugdag tarafından yapılmıştır, destek için takip edebilirsin, kolay gelsin!';
     var state = {
         platform: 'reels',
         username: 'alptugdag',
         isVerified: true,
         showFollow: true,
-        caption: 'Bu eklenti @alptugdag tarafından yapılmıştır.',
+        caption: DEFAULT_CAPTION,
         audioName: 'alptugdag · Orijinal Ses',
         likesCount: '12.4K',
         commentsCount: '348',
         savesCount: '8.1K',
         sharesCount: '1.2K',
+        avatarDataUrl: 'assets/sample_avatar.png',
         showSafeZones: true,
         showMockUi: true,
         showSubtitleZone: true,
@@ -91,6 +94,7 @@
     var runtime = {
         host: resolveBridge ? 'RESOLVE' : (csInterface ? 'PPRO' : (hasNative() ? 'RESOLVE' : 'WEB')),
         seq: { ok: false, width: 1080, height: 1920, fps: 0, duration: 0, name: '' },
+        avatarImage: null,
         monitorOn: false,
         rev: Date.now() % 100000
     };
@@ -103,6 +107,8 @@
     };
 
     var STORAGE_KEY = 'alptuguide_v3_state';
+    var PRESETS_KEY = 'alptuguide_presets';
+    var PRESET_FIELDS = ['username', 'isVerified', 'showFollow', 'caption', 'audioName', 'likesCount', 'commentsCount', 'savesCount', 'sharesCount', 'avatarDataUrl'];
 
     // ------------------------------------------------------------------ Toast
     var toastTimer = 0;
@@ -115,24 +121,57 @@
         toastTimer = setTimeout(function () { el.className = 'toast'; }, 2600);
     }
 
+    // ------------------------------------------------------------------ Presets
+    function getPresets() { try { return JSON.parse(localStorage.getItem(PRESETS_KEY) || '{}'); } catch (e) { return {}; } }
+    function setPresets(p) { try { localStorage.setItem(PRESETS_KEY, JSON.stringify(p)); } catch (e) {} }
+
+    function renderPresets(selected) {
+        var sel = $('preset-selector');
+        if (!sel) return;
+        sel.innerHTML = '';
+        var def = document.createElement('option');
+        def.value = '__default__';
+        def.textContent = 'Varsayılan (@alptugdag)';
+        sel.appendChild(def);
+        Object.keys(getPresets()).forEach(function (k) {
+            var o = document.createElement('option');
+            o.value = k;
+            o.textContent = '@' + k;
+            sel.appendChild(o);
+        });
+        if (selected) sel.value = selected;
+    }
+
+    function loadAvatar(src) {
+        if (!src) return;
+        var img = new Image();
+        img.onload = function () {
+            runtime.avatarImage = img;
+            var prev = $('avatar-img-preview');
+            if (prev) prev.src = src;
+            scheduleRender();
+        };
+        img.src = src;
+    }
+
     // ------------------------------------------------------------------ Offscreen Renderer
     function renderState(w, h) {
         return {
             platform: state.platform,
             username: state.username,
-            isVerified: state.isVerified,
-            showFollow: state.showFollow,
+            isVerified: Boolean(state.isVerified),
+            showFollow: Boolean(state.showFollow),
             caption: state.caption,
             audioName: state.audioName,
             likesCount: state.likesCount,
             commentsCount: state.commentsCount,
             savesCount: state.savesCount,
             sharesCount: state.sharesCount,
-            showSafeZones: state.showSafeZones,
-            showSubtitleZone: state.showSubtitleZone,
-            showMockUi: state.showMockUi,
+            showSafeZones: Boolean(state.showSafeZones),
+            showSubtitleZone: Boolean(state.showSubtitleZone),
+            showMockUi: Boolean(state.showMockUi),
             overlayOpacity: state.overlayOpacity,
-            avatarImage: null,
+            avatarImage: runtime.avatarImage,
             videoFrameImage: null,
             targetWidth: w,
             targetHeight: h
@@ -146,8 +185,13 @@
         ctx.clearRect(0, 0, w, h);
 
         if (mode === 'guides_only') {
-            if (window.AlptuguideSafeZones) {
-                AlptuguideSafeZones.draw(ctx, state.platform, w, h, { opacity: state.overlayOpacity, showLabels: true });
+            if (window.AlptuguideSafeZones && state.showSafeZones) {
+                AlptuguideSafeZones.draw(ctx, state.platform, w, h, {
+                    opacity: state.overlayOpacity,
+                    showLabels: true,
+                    showSafeZones: true,
+                    showUiBoxes: false
+                });
             }
         } else {
             if (window.ReelsRenderer) {
@@ -158,12 +202,12 @@
         if (window.AlptuguideCompGuides) {
             AlptuguideCompGuides.draw(ctx, w, h, {
                 opacity: state.overlayOpacity,
-                thirds: state.thirds,
-                center: state.center,
-                broadcast: state.broadcast,
-                feed45: state.feed45,
-                grid34: state.grid34,
-                square: state.feed11
+                thirds: Boolean(state.thirds),
+                center: Boolean(state.center),
+                broadcast: Boolean(state.broadcast),
+                feed45: Boolean(state.feed45),
+                grid34: Boolean(state.grid34),
+                square: Boolean(state.feed11)
             });
         }
     }
@@ -226,27 +270,21 @@
         publishTimer = setTimeout(function () { publish(false); }, runtime.host === 'AEFT' ? 350 : 150);
     }
 
-    // Doğrudan host programın monitörüne (Program Monitor / Viewer / Comp) kılavuzu iletir.
+    // Program Monitöründe Kılavuz Gösterme (Premiere Pro'da Sıfır Timeline İzi)
     function publish(edit, done) {
+        if (runtime.host === 'PPRO') {
+            callHost('setPremiereNativeGuides', [runtime.monitorOn, state], function (res) {
+                if (res && String(res).indexOf('ERR') === 0) toast(res, true);
+                if (done) done(true);
+            });
+            return;
+        }
+
         if (runtime.host === 'AEFT') {
             if (!ensureShareDir()) { toast('Dosya erişimi yok.', true); return; }
             var aePath = path.join(SHARE_DIR, 'Alptuguide_AE_Guide.png');
             if (runtime.monitorOn) writePng(aePath, overlayPng('current', Math.max(runtime.seq.width || 1080, runtime.seq.height || 1920)));
             callHost('setCompGuide', [aePath, runtime.monitorOn], function (res) {
-                if (res !== 'OK' && res) toast(res, true);
-                if (done) done(res === 'OK');
-            });
-            return;
-        }
-
-        if (runtime.host === 'PPRO') {
-            if (!ensureShareDir()) { toast('Dosya erişimi yok.', true); return; }
-            var prPath = path.join(SHARE_DIR, 'Alptuguide_Premiere_Guide.png');
-            if (runtime.monitorOn) {
-                var sz = Math.max(runtime.seq.width || 1080, runtime.seq.height || 1920);
-                writePng(prPath, overlayPng('current', sz));
-            }
-            callHost('setPremiereGuide', [prPath, runtime.monitorOn], function (res) {
                 if (res !== 'OK' && res) toast(res, true);
                 if (done) done(res === 'OK');
             });
@@ -289,7 +327,7 @@
             } else if (runtime.host === 'RESOLVE') {
                 toast(on ? 'DaVinci Viewer kılavuzu etkinleştirildi.' : 'Kılavuz gizlendi.');
             } else {
-                toast(on ? 'Program Monitöründe gösteriliyor (render\'a girmez).' : 'Monitör kılavuzu gizlendi.');
+                toast(on ? 'Program Monitöründe gösteriliyor (Sıfır timeline izi).' : 'Monitör kılavuzları gizlendi.');
             }
         });
     }
@@ -307,7 +345,7 @@
         var sEl = $('monitor-sub');
         if (sEl) sEl.textContent = runtime.host === 'AEFT'
             ? 'Guide Layer · Render\'a girmez'
-            : 'Render\'a girmez · Canlı önizleme';
+            : 'Sıfır timeline izi · Monitör kılavuzu';
     }
 
     // ------------------------------------------------------------------ Sequence Info
@@ -370,10 +408,19 @@
     }
 
     function updatePlatformUI() {
+        var meta = PLATFORM[state.platform];
         var tabs = document.querySelectorAll('.seg-btn');
         for (var i = 0; i < tabs.length; i++) {
             tabs[i].classList.toggle('active', tabs[i].getAttribute('data-platform') === state.platform);
         }
+        var fChip = $('chip-follow');
+        if (fChip && meta) fChip.textContent = meta.follow;
+        var lText = $('metric-like-text');
+        if (lText && meta) lText.textContent = meta.like;
+        var sText = $('metric-share-text');
+        if (sText && meta) sText.textContent = meta.share;
+        var bSaves = $('metric-box-saves');
+        if (bSaves && meta) bSaves.style.display = meta.saves ? '' : 'none';
         updateSeqChip();
     }
 
@@ -381,17 +428,26 @@
         var chips = document.querySelectorAll('.chip[data-key]');
         for (var i = 0; i < chips.length; i++) {
             var k = chips[i].getAttribute('data-key');
-            chips[i].classList.toggle('on', !!state[k]);
+            chips[i].classList.toggle('on', Boolean(state[k]));
         }
     }
 
     function syncInputs() {
+        if ($('input-username')) $('input-username').value = state.username;
+        if ($('input-caption')) $('input-caption').value = state.caption;
+        if ($('input-audio')) $('input-audio').value = state.audioName;
+        if ($('input-likes')) $('input-likes').value = state.likesCount;
+        if ($('input-comments')) $('input-comments').value = state.commentsCount;
+        if ($('input-saves')) $('input-saves').value = state.savesCount;
+        if ($('input-shares')) $('input-shares').value = state.sharesCount;
         var pct = Math.round(state.overlayOpacity * 100);
         var opInput = $('input-opacity');
         if (opInput) opInput.value = String(pct);
         var opVal = $('opacity-val');
         if (opVal) opVal.textContent = pct + '%';
         syncChips();
+        loadAvatar(state.avatarDataUrl || 'assets/sample_avatar.png');
+        renderPresets();
         updatePlatformUI();
     }
 
@@ -403,7 +459,8 @@
     // ------------------------------------------------------------------ Pro Tools
     function insertPermanentGuide() {
         if (!ensureShareDir()) { toast('Dosya erişimi yok.', true); return; }
-        var p = path.join(SHARE_DIR, 'Alptuguide_Guides_' + state.platform.toUpperCase() + '_' + (runtime.seq.width || 1080) + 'x' + (runtime.seq.height || 1920) + '.png');
+        var ts = Date.now();
+        var p = path.join(SHARE_DIR, 'Alptuguide_Guides_' + state.platform.toUpperCase() + '_' + ts + '.png');
         writePng(p, overlayPng('guides_only', Math.max(runtime.seq.width || 1080, runtime.seq.height || 1920)));
         callHost('insertClipPermanent', [p, '[Alptuguide Kılavuz]'], function (res) {
             if (res === 'OK') toast('Kılavuz klibi timeline\'a yerleştirildi.');
@@ -413,7 +470,8 @@
 
     function insertPermanentOverlay() {
         if (!ensureShareDir()) { toast('Dosya erişimi yok.', true); return; }
-        var p = path.join(SHARE_DIR, 'Alptuguide_Overlay_' + state.platform.toUpperCase() + '_' + (runtime.seq.width || 1080) + 'x' + (runtime.seq.height || 1920) + '.png');
+        var ts = Date.now();
+        var p = path.join(SHARE_DIR, 'Alptuguide_Overlay_' + state.platform.toUpperCase() + '_' + ts + '.png');
         writePng(p, overlayPng('current', Math.max(runtime.seq.width || 1080, runtime.seq.height || 1920)));
         callHost('insertClipPermanent', [p, '[Alptuguide Arayüz]'], function (res) {
             if (res === 'OK') toast('Arayüz klibi timeline\'a yerleştirildi.');
@@ -445,6 +503,63 @@
         });
     }
 
+    // ------------------------------------------------------------------ Mek Live Gateway
+    var mekClient = null;
+    function connectToMekGateway() {
+        if (!net) return;
+        try {
+            mekClient = net.createConnection({ port: 45732, host: '127.0.0.1' }, function () {
+                var hello = JSON.stringify({ type: 'status_update', state: { host: 'PPRO', ready: true } }) + '\n';
+                mekClient.write(hello);
+            });
+
+            var buf = '';
+            mekClient.on('data', function (chunk) {
+                buf += chunk.toString('utf8');
+                while (buf.indexOf('\n') >= 0) {
+                    var idx = buf.indexOf('\n');
+                    var line = buf.slice(0, idx).trim();
+                    buf = buf.slice(idx + 1);
+                    if (!line) continue;
+                    try {
+                        var msg = JSON.parse(line);
+                        if (msg.type === 'command') {
+                            handleMekCommand(msg);
+                        }
+                    } catch (err) {}
+                }
+            });
+
+            mekClient.on('error', function () {});
+            mekClient.on('close', function () {
+                setTimeout(connectToMekGateway, 4000);
+            });
+        } catch (e) {}
+    }
+
+    function handleMekCommand(msg) {
+        if (msg.action === 'apply_viral_hook' || msg.action === 'viral_hook') {
+            callHost('applyViralRetentionHook', [msg.params || {}], function (res) {
+                var d = {};
+                try { d = typeof res === 'string' ? JSON.parse(res) : res; } catch (e) {}
+                toast(d.message || 'Viral hook uygulandı!');
+                if (mekClient && !mekClient.destroyed) {
+                    var rep = JSON.stringify({ type: 'response', req_id: msg.req_id, data: d }) + '\n';
+                    mekClient.write(rep);
+                }
+            });
+        } else if (msg.action === 'analyze_timeline') {
+            callHost('getSequenceDetails', [], function (res) {
+                var d = {};
+                try { d = typeof res === 'string' ? JSON.parse(res) : res; } catch (e) {}
+                if (mekClient && !mekClient.destroyed) {
+                    var rep = JSON.stringify({ type: 'response', req_id: msg.req_id, data: d }) + '\n';
+                    mekClient.write(rep);
+                }
+            });
+        }
+    }
+
     // ------------------------------------------------------------------ Event Bindings
     function bindEvents() {
         var platTabs = $('platform-tabs');
@@ -463,7 +578,7 @@
             if (!chip) return;
             var k = chip.getAttribute('data-key');
             state[k] = !state[k];
-            chip.classList.toggle('on', state[k]);
+            chip.classList.toggle('on', Boolean(state[k]));
             scheduleRender();
         });
 
@@ -486,6 +601,97 @@
         var seqChip = $('seq-chip');
         if (seqChip) {
             seqChip.addEventListener('click', function () { refreshSequence(true); });
+        }
+
+        var textBindings = {
+            'input-username': function (v) { state.username = v.replace(/^@+/, '').trim() || 'kullanici'; },
+            'input-caption': function (v) { state.caption = v; },
+            'input-audio': function (v) { state.audioName = v; },
+            'input-likes': function (v) { state.likesCount = v; },
+            'input-comments': function (v) { state.commentsCount = v; },
+            'input-saves': function (v) { state.savesCount = v; },
+            'input-shares': function (v) { state.sharesCount = v; }
+        };
+        Object.keys(textBindings).forEach(function (id) {
+            var el = $(id);
+            if (el) {
+                el.addEventListener('input', function () {
+                    textBindings[id](this.value);
+                    scheduleRender();
+                });
+            }
+        });
+
+        var avInput = $('avatar-input');
+        if (avInput) {
+            avInput.addEventListener('change', function () {
+                var f = this.files && this.files[0];
+                if (!f) return;
+                var reader = new FileReader();
+                reader.onload = function (ev) {
+                    state.avatarDataUrl = ev.target.result;
+                    loadAvatar(state.avatarDataUrl);
+                };
+                reader.readAsDataURL(f);
+            });
+        }
+
+        var savePreBtn = $('btn-save-preset');
+        if (savePreBtn) {
+            savePreBtn.addEventListener('click', function () {
+                var key = (state.username || 'profil').trim().toLowerCase();
+                var p = getPresets();
+                p[key] = {};
+                PRESET_FIELDS.forEach(function (f) { p[key][f] = state[f]; });
+                setPresets(p);
+                renderPresets(key);
+                toast('@' + key + ' profili kaydedildi.');
+            });
+        }
+
+        var preSel = $('preset-selector');
+        if (preSel) {
+            preSel.addEventListener('change', function () {
+                var key = this.value;
+                if (key === '__default__') {
+                    state.username = 'alptugdag';
+                    state.isVerified = true;
+                    state.showFollow = true;
+                    state.caption = DEFAULT_CAPTION;
+                    state.audioName = 'alptugdag · Orijinal Ses';
+                    state.avatarDataUrl = 'assets/sample_avatar.png';
+                } else {
+                    var p = getPresets()[key];
+                    if (p) PRESET_FIELDS.forEach(function (f) { if (typeof p[f] !== 'undefined') state[f] = p[f]; });
+                }
+                syncInputs();
+                scheduleRender();
+            });
+        }
+
+        var delPreBtn = $('btn-delete-preset');
+        if (delPreBtn) {
+            delPreBtn.addEventListener('click', function () {
+                var sel = $('preset-selector');
+                if (!sel || sel.value === '__default__') return;
+                var p = getPresets();
+                delete p[sel.value];
+                setPresets(p);
+                toast('@' + sel.value + ' profili silindi.');
+                renderPresets('__default__');
+            });
+        }
+
+        var vHookBtn = $('btn-viral-hook');
+        if (vHookBtn) {
+            vHookBtn.addEventListener('click', function () {
+                callHost('applyViralRetentionHook', [{}], function (res) {
+                    var d = {};
+                    try { d = typeof res === 'string' ? JSON.parse(res) : res; } catch (e) {}
+                    if (d.ok) toast(d.message || 'İlk 3sn Viral Hook uygulandı!');
+                    else toast(d.message || d.error || 'Hook uygulanamadı.', true);
+                });
+            });
         }
 
         var refBtn = $('btn-reframe');
@@ -541,6 +747,7 @@
         updateToolAvailability();
         bindEvents();
         refreshSequence(false);
+        connectToMekGateway();
     }
 
     if (document.readyState === 'loading') {

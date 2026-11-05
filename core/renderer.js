@@ -515,14 +515,19 @@
         ctx.translate((w - L.W * s) / 2, (h - L.H * s) / 2);
         ctx.scale(s, s);
         var info = null;
-        if (cfg.showUi !== false && platform !== 'all') {
+        if (cfg.showUi && platform !== 'all') {
             ctx.save();
             ctx.globalAlpha = alpha;
             info = drawUi(ctx, uiPlatform, cfg, assets);
             ctx.restore();
         }
-        if (cfg.showSafeZones && Z) {
-            Z.draw(ctx, platform, { opacity: alpha, labels: cfg.showGuideLabels !== false });
+        if (Z && (cfg.showSafeZones || cfg.showUi)) {
+            Z.draw(ctx, platform, {
+                opacity: alpha,
+                labels: cfg.showGuideLabels !== false,
+                showSafeZones: Boolean(cfg.showSafeZones),
+                showUiBoxes: Boolean(cfg.showUi)
+            });
         }
         if (cfg.showSubtitleZone) {
             if (!info) {
@@ -582,7 +587,7 @@
             shares: state.sharesCount || '0',
             showSafeZones: Boolean(state.showSafeZones),
             showSubtitleZone: Boolean(state.showSubtitleZone),
-            showUi: state.showMockUi !== false,
+            showUi: Boolean(state.showMockUi),
             showGuideLabels: true,
             opacity: typeof state.overlayOpacity === 'number' ? state.overlayOpacity : 1.0
         }, {

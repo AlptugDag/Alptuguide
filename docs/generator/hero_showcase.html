@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8">
+    <title>Alptuguide Hero Showcase</title>
+    <style>
+        @font-face { font-family: 'Inter'; src: url('../../assets/fonts/Inter-Regular.ttf'); font-weight: 400; }
+        @font-face { font-family: 'Inter'; src: url('../../assets/fonts/Inter-Medium.ttf'); font-weight: 500; }
+        @font-face { font-family: 'Inter'; src: url('../../assets/fonts/Inter-SemiBold.ttf'); font-weight: 600; }
+        @font-face { font-family: 'Inter'; src: url('../../assets/fonts/Inter-Bold.ttf'); font-weight: 700; }
+        @font-face { font-family: 'Montserrat'; src: url('../../assets/fonts/Montserrat-Medium.ttf'); font-weight: 500; }
+        @font-face { font-family: 'Montserrat'; src: url('../../assets/fonts/Montserrat-SemiBold.ttf'); font-weight: 600; }
+        @font-face { font-family: 'Montserrat'; src: url('../../assets/fonts/Montserrat-Bold.ttf'); font-weight: 700; }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            width: 2400px;
+            height: 1350px;
+            background: #07090e;
+            font-family: 'Inter', -apple-system, sans-serif;
+            color: #eef1f6;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            user-select: none;
+        }
+
+        /* Ambient Lighting */
+        .ambient-glow {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(140px);
+            pointer-events: none;
+            opacity: 0.55;
+        }
+        .glow-1 { width: 900px; height: 900px; top: -300px; left: 100px; background: radial-gradient(circle, rgba(56, 189, 248, 0.22) 0%, transparent 70%); }
+        .glow-2 { width: 1000px; height: 1000px; top: 150px; left: 850px; background: radial-gradient(circle, rgba(16, 185, 129, 0.20) 0%, transparent 70%); }
+        .glow-3 { width: 950px; height: 950px; bottom: -200px; right: 50px; background: radial-gradient(circle, rgba(139, 92, 246, 0.22) 0%, transparent 70%); }
+
+        /* Subtle Studio Grid */
+        .studio-grid {
+            position: absolute;
+            inset: 0;
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+            background-size: 80px 80px;
+            pointer-events: none;
+        }
+
+        /* Top Header */
+        .hero-header {
+            position: relative;
+            z-index: 10;
+            padding: 50px 80px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+        .brand-meta {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+        .brand-logo-wrap {
+            width: 76px;
+            height: 76px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.03));
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), 0 16px 36px rgba(0,0,0,0.4);
+            display: grid;
+            place-items: center;
+            padding: 12px;
+        }
+        .brand-logo-wrap img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .brand-text h1 {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 44px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            background: linear-gradient(180deg, #ffffff 30%, #a5b4fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .version-tag {
+            font-size: 16px;
+            font-weight: 700;
+            padding: 4px 14px;
+            border-radius: 999px;
+            background: rgba(16, 185, 129, 0.16);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            color: #34d399;
+            -webkit-text-fill-color: #34d399;
+        }
+        .brand-text p {
+            font-size: 19px;
+            color: #94a3b8;
+            margin-top: 6px;
+            font-weight: 500;
+        }
+        .brand-text p strong {
+            color: #38bdf8;
+            font-weight: 600;
+        }
+
+        .header-badges {
+            display: flex;
+            gap: 14px;
+        }
+        .hdr-pill {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 20px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            font-size: 15px;
+            font-weight: 600;
+            color: #e2e8f0;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+        }
+        .hdr-pill .dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+        }
+        .hdr-pill.emerald .dot { background: #10b981; box-shadow: 0 0 10px #10b981; }
+        .hdr-pill.cyan .dot { background: #06b6d4; box-shadow: 0 0 10px #06b6d4; }
+        .hdr-pill.violet .dot { background: #8b5cf6; box-shadow: 0 0 10px #8b5cf6; }
+
+        /* Main Showcase Stage */
+        .showcase-stage {
+            position: relative;
+            z-index: 10;
+            flex: 1;
+            padding: 10px 80px 50px;
+            display: grid;
+            grid-template-columns: 460px 1.25fr 0.85fr;
+            gap: 50px;
+            align-items: center;
+        }
+
+        /* 1. Glass Window Container (Panel) */
+        .window-frame {
+            background: rgba(13, 17, 27, 0.78);
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            box-shadow: 
+                inset 0 1px 0 rgba(255, 255, 255, 0.22),
+                0 30px 80px rgba(0, 0, 0, 0.65),
+                0 0 40px rgba(56, 189, 248, 0.08);
+            backdrop-filter: blur(40px);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .window-titlebar {
+            height: 48px;
+            background: rgba(255, 255, 255, 0.04);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            align-items: center;
+            padding: 0 18px;
+            gap: 10px;
+        }
+        .traffic-dot {
+            width: 13px;
+            height: 13px;
+            border-radius: 50%;
+        }
+        .dot-red { background: #ff5f56; border: 1px solid #e0443e; }
+        .dot-yellow { background: #ffbd2e; border: 1px solid #dea123; }
+        .dot-green { background: #27c93f; border: 1px solid #1aab29; }
+        .window-title-text {
+            flex: 1;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 600;
+            color: #94a3b8;
+            margin-right: 48px;
+        }
+
+        .panel-content-wrap {
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        .panel-top-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .panel-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .panel-sig {
+            height: 22px;
+            opacity: 0.95;
+        }
+        .panel-name {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 15px;
+            font-weight: 700;
+        }
+        .panel-seq-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.35);
+            font-size: 12px;
+            font-weight: 600;
+            color: #6ee7b7;
+        }
+        .panel-seq-badge .dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #10b981;
+            box-shadow: 0 0 8px #10b981;
+        }
+
+        .panel-seg {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 4px;
+            padding: 4px;
+            border-radius: 999px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .panel-seg-btn {
+            padding: 8px 4px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 700;
+            text-align: center;
+            color: #8b93a3;
+        }
+        .panel-seg-btn.active {
+            color: #ffffff;
+            background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.06));
+            border: 1px solid rgba(255,255,255,0.14);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.35);
+        }
+
+        .panel-monitor-btn {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 14px 18px;
+            border-radius: 16px;
+            background: linear-gradient(180deg, rgba(16, 185, 129, 0.28), rgba(6, 95, 70, 0.22));
+            border: 1px solid rgba(52, 211, 153, 0.55);
+            box-shadow: 
+                inset 0 1px 0 rgba(255,255,255,0.25),
+                0 8px 24px rgba(16, 185, 129, 0.25);
+        }
+        .panel-monitor-btn svg {
+            width: 26px;
+            height: 26px;
+            stroke: #a7f3d0;
+            stroke-width: 2.2;
+            fill: none;
+        }
+        .btn-text-group strong {
+            display: block;
+            font-size: 15px;
+            font-weight: 700;
+            color: #ffffff;
+        }
+        .btn-text-group small {
+            font-size: 12px;
+            color: #a7f3d0;
+            opacity: 0.9;
+        }
+
+        .panel-mini-preview {
+            background: repeating-conic-gradient(#15181f 0% 25%, #1b1f27 0% 50%) 50% / 16px 16px;
+            border-radius: 14px;
+            height: 260px;
+            display: grid;
+            place-items: center;
+            border: 1px solid rgba(255,255,255,0.08);
+            overflow: hidden;
+            position: relative;
+        }
+        .panel-mini-preview canvas {
+            height: 94%;
+            aspect-ratio: 9/16;
+            border-radius: 8px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+        }
+        .preview-spec-caption {
+            font-size: 11.5px;
+            color: #8b93a3;
+            text-align: center;
+            margin-top: 2px;
+        }
+
+        .panel-chips-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 7px;
+        }
+        .p-chip {
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            color: #94a3b8;
+        }
+        .p-chip.on {
+            color: #d1fae5;
+            background: rgba(16, 185, 129, 0.18);
+            border-color: rgba(52, 211, 153, 0.55);
+        }
+
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+        .p-tool {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 10px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            font-size: 12px;
+            font-weight: 600;
+            color: #e2e8f0;
+        }
+        .p-tool svg {
+            width: 16px;
+            height: 16px;
+            stroke: #38bdf8;
+            stroke-width: 2;
+            fill: none;
+        }
+
+        /* 2. Studio Program Monitor Frame */
+        .monitor-frame {
+            display: flex;
+            flex-direction: column;
+            background: #0f131d;
+            border-radius: 28px;
+            border: 2px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 
+                inset 0 1px 0 rgba(255, 255, 255, 0.25),
+                0 35px 90px rgba(0, 0, 0, 0.75),
+                0 0 50px rgba(16, 185, 129, 0.12);
+            overflow: hidden;
+            position: relative;
+        }
+        .monitor-header {
+            height: 52px;
+            background: #151a27;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+        }
+        .monitor-tag {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13.5px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            color: #cbd5e1;
+        }
+        .monitor-tag .rec-badge {
+            background: #dc2626;
+            color: #fff;
+            font-size: 11px;
+            padding: 2px 7px;
+            border-radius: 4px;
+            font-weight: 800;
+            box-shadow: 0 0 10px rgba(220, 38, 38, 0.6);
+        }
+        .monitor-specs {
+            font-size: 13px;
+            font-weight: 600;
+            color: #64748b;
+        }
+        .monitor-screen {
+            position: relative;
+            background: #05070c;
+            display: grid;
+            place-items: center;
+            padding: 30px 20px;
+            height: 820px;
+        }
+        .monitor-canvas-wrap {
+            position: relative;
+            height: 100%;
+            aspect-ratio: 9/16;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 15px 45px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255,255,255,0.08);
+        }
+        .monitor-canvas-wrap canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        .monitor-callout-pill {
+            position: absolute;
+            bottom: 45px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 26px;
+            border-radius: 999px;
+            background: rgba(6, 12, 20, 0.90);
+            border: 1px solid rgba(52, 211, 153, 0.6);
+            box-shadow: 0 12px 36px rgba(0,0,0,0.7), 0 0 20px rgba(16, 185, 129, 0.25);
+            backdrop-filter: blur(20px);
+            font-size: 14.5px;
+            font-weight: 700;
+            color: #6ee7b7;
+            white-space: nowrap;
+        }
+        .monitor-callout-pill .sparkle {
+            color: #34d399;
+            font-size: 18px;
+        }
+
+        /* 3. Mobile Device Mockup */
+        .phone-frame {
+            position: relative;
+            background: #11141c;
+            border-radius: 54px;
+            border: 4px solid #333a4d;
+            box-shadow: 
+                inset 0 0 0 2px rgba(255,255,255,0.1),
+                0 30px 80px rgba(0, 0, 0, 0.7),
+                0 0 35px rgba(139, 92, 246, 0.12);
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            width: 440px;
+            height: 880px;
+        }
+        .phone-notch-bar {
+            position: absolute;
+            top: 26px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 125px;
+            height: 32px;
+            background: #000000;
+            border-radius: 20px;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 12px;
+        }
+        .notch-camera-lens {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #1a2234;
+            box-shadow: inset 0 0 3px rgba(0,0,0,0.8);
+        }
+        .phone-screen {
+            flex: 1;
+            border-radius: 42px;
+            overflow: hidden;
+            background: #000;
+            position: relative;
+        }
+        .phone-screen canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        .phone-tag-badge {
+            position: absolute;
+            top: -24px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 8px 20px;
+            border-radius: 999px;
+            background: rgba(139, 92, 246, 0.22);
+            border: 1px solid rgba(139, 92, 246, 0.55);
+            color: #c4b5fd;
+            font-size: 13px;
+            font-weight: 700;
+            white-space: nowrap;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="ambient-glow glow-1"></div>
+    <div class="ambient-glow glow-2"></div>
+    <div class="ambient-glow glow-3"></div>
+    <div class="studio-grid"></div>
+
+    <header class="hero-header">
+        <div class="brand-meta">
+            <div class="brand-logo-wrap">
+                <img src="../../assets/alptuguide_logo.png" alt="Alptuguide">
+            </div>
+            <div class="brand-text">
+                <h1>Alptuguide™ Studio <span class="version-tag">v3.2</span></h1>
+                <p>Apple Liquid Glass Kurgu Eklentisi · <strong>Premiere Pro</strong> · <strong>After Effects</strong> · <strong>DaVinci Resolve</strong></p>
+            </div>
+        </div>
+        <div class="header-badges">
+            <div class="hdr-pill emerald"><span class="dot"></span>1:1 Doğrulanmış Güvenli Alanlar</div>
+            <div class="hdr-pill cyan"><span class="dot"></span>Render Dışı Canlı Monitör (HUD)</div>
+            <div class="hdr-pill violet"><span class="dot"></span>Sıfır Gecikme & %0 CPU</div>
+        </div>
+    </header>
+
+    <main class="showcase-stage">
+        <!-- 1. Extension Panel Frame -->
+        <div class="window-frame">
+            <div class="window-titlebar">
+                <span class="traffic-dot dot-red"></span>
+                <span class="traffic-dot dot-yellow"></span>
+                <span class="traffic-dot dot-green"></span>
+                <span class="window-title-text">Alptuguide Studio</span>
+            </div>
+            <div class="panel-content-wrap">
+                <div class="panel-top-row">
+                    <div class="panel-brand">
+                        <img src="../../assets/imza.svg" class="panel-sig" alt="">
+                        <span class="panel-name">Alptuguide</span>
+                    </div>
+                    <div class="panel-seq-badge">
+                        <span class="dot"></span>
+                        <span>1080 × 1920 · 29.97 fps</span>
+                    </div>
+                </div>
+
+                <div class="panel-seg">
+                    <div class="panel-seg-btn active">Reels</div>
+                    <div class="panel-seg-btn">TikTok</div>
+                    <div class="panel-seg-btn">Shorts</div>
+                    <div class="panel-seg-btn">Ortak</div>
+                </div>
+
+                <div class="panel-monitor-btn">
+                    <svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <div class="btn-text-group">
+                        <strong>Program Monitöründe Göster</strong>
+                        <small>Render'a girmez · ⌃⌥G kısayol</small>
+                    </div>
+                </div>
+
+                <div class="panel-mini-preview">
+                    <canvas id="mini-canvas" width="1080" height="1920"></canvas>
+                </div>
+                <p class="preview-spec-caption">Üst 269 · Alt 672 (440 UI) · Sol 65 · Sağ 146 px</p>
+
+                <div class="panel-chips-row">
+                    <span class="p-chip on">Güvenli alan</span>
+                    <span class="p-chip on">Arayüz</span>
+                    <span class="p-chip on">Feed 4:5</span>
+                    <span class="p-chip">Altyazı çizgisi</span>
+                    <span class="p-chip">Üçte bir</span>
+                    <span class="p-chip">Merkez</span>
+                </div>
+
+                <div class="tools-grid">
+                    <div class="p-tool">
+                        <svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><rect x="9" y="3" width="6" height="18" rx="1.5"/></svg>
+                        <span>9:16 Kopya</span>
+                    </div>
+                    <div class="p-tool">
+                        <svg viewBox="0 0 24 24"><path d="M6 3h12v13l-6 5-6-5z"/></svg>
+                        <span>Hook & Limit</span>
+                    </div>
+                    <div class="p-tool">
+                        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
+                        <span>Kılavuz Klibi</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Studio Program Monitor -->
+        <div class="monitor-frame">
+            <div class="monitor-header">
+                <div class="monitor-tag">
+                    <span class="rec-badge">REC</span>
+                    <span>PROGRAM MONİTÖRÜ (VIEWER)</span>
+                </div>
+                <div class="monitor-specs">1080 × 1920 (9:16) · 29.97 FPS · Rec.709</div>
+            </div>
+            <div class="monitor-screen">
+                <div class="monitor-canvas-wrap">
+                    <canvas id="monitor-canvas" width="1080" height="1920"></canvas>
+                </div>
+                <div class="monitor-callout-pill">
+                    <span class="sparkle">✦</span>
+                    <span>Canlı Ekran Üstü Kılavuz (HUD) · Render Çıktısına Kesinlikle Girmez</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Mobile Smartphone Mockup -->
+        <div class="phone-frame">
+            <div class="phone-tag-badge">1:1 Canlı Sosyal Medya Simülasyonu</div>
+            <div class="phone-notch-bar">
+                <div class="notch-camera-lens"></div>
+            </div>
+            <div class="phone-screen">
+                <canvas id="phone-canvas" width="1080" height="1920"></canvas>
+            </div>
+        </div>
+    </main>
+
+    <!-- Load Core Rendering Engine -->
+    <script src="../../core/safezones.js"></script>
+    <script src="../../core/layout.js"></script>
+    <script src="../../core/renderer.js"></script>
+    <script src="../../core/compguides.js"></script>
+    <script>
+        window.__isReady = false;
+
+        function buildCinematicBackdrop(w, h) {
+            var c = document.createElement('canvas');
+            c.width = w; c.height = h;
+            var ctx = c.getContext('2d');
+
+            // Rich cinematic color grading: Deep midnight teal to obsidian with warm amber rim
+            var grad = ctx.createLinearGradient(0, 0, w, h);
+            grad.addColorStop(0.0, '#09131e');
+            grad.addColorStop(0.35, '#111b2b');
+            grad.addColorStop(0.70, '#1c152b');
+            grad.addColorStop(1.0, '#0a0a14');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, w, h);
+
+            // Anamorphic teal/cyan spotlight beam
+            var spot = ctx.createRadialGradient(w * 0.45, h * 0.42, 50, w * 0.45, h * 0.42, w * 0.65);
+            spot.addColorStop(0.0, 'rgba(56, 189, 248, 0.45)');
+            spot.addColorStop(0.45, 'rgba(14, 116, 144, 0.22)');
+            spot.addColorStop(1.0, 'rgba(0,0,0,0)');
+            ctx.fillStyle = spot;
+            ctx.fillRect(0, 0, w, h);
+
+            // Warm amber backlight rim glow on right
+            var rim = ctx.createRadialGradient(w * 0.85, h * 0.50, 40, w * 0.85, h * 0.50, w * 0.55);
+            rim.addColorStop(0.0, 'rgba(251, 146, 60, 0.35)');
+            rim.addColorStop(0.5, 'rgba(217, 70, 239, 0.15)');
+            rim.addColorStop(1.0, 'rgba(0,0,0,0)');
+            ctx.fillStyle = rim;
+            ctx.fillRect(0, 0, w, h);
+
+            // Cinematic silhouette figure (artist / creator)
+            ctx.save();
+            ctx.fillStyle = '#060a12';
+            ctx.shadowColor = 'rgba(56, 189, 248, 0.3)';
+            ctx.shadowBlur = 40;
+            // Head
+            ctx.beginPath();
+            ctx.arc(w * 0.50, h * 0.38, 110, 0, Math.PI * 2);
+            ctx.fill();
+            // Shoulders & Body
+            ctx.beginPath();
+            ctx.moveTo(w * 0.50 - 260, h * 0.72);
+            ctx.bezierCurveTo(w * 0.50 - 240, h * 0.50, w * 0.50 - 150, h * 0.45, w * 0.50, h * 0.45);
+            ctx.bezierCurveTo(w * 0.50 + 150, h * 0.45, w * 0.50 + 240, h * 0.50, w * 0.50 + 260, h * 0.72);
+            ctx.lineTo(w * 0.50 + 340, h);
+            ctx.lineTo(w * 0.50 - 340, h);
+            ctx.closePath();
+            ctx.fill();
+
+            // Amber rim highlight along subject's right edge
+            ctx.strokeStyle = 'rgba(251, 191, 36, 0.65)';
+            ctx.lineWidth = 6;
+            ctx.shadowColor = 'rgba(251, 191, 36, 0.8)';
+            ctx.shadowBlur = 18;
+            ctx.beginPath();
+            ctx.arc(w * 0.50, h * 0.38, 110, -Math.PI * 0.15, Math.PI * 0.4);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(w * 0.50 + 130, h * 0.47);
+            ctx.bezierCurveTo(w * 0.50 + 220, h * 0.52, w * 0.50 + 250, h * 0.62, w * 0.50 + 270, h * 0.75);
+            ctx.stroke();
+            ctx.restore();
+
+            // Subtle film grain & cinematic dust
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.025)';
+            for (var i = 0; i < 400; i++) {
+                var rx = Math.random() * w, ry = Math.random() * h, r = Math.random() * 2.5;
+                ctx.beginPath(); ctx.arc(rx, ry, r, 0, Math.PI * 2); ctx.fill();
+            }
+
+            return c;
+        }
+
+        window.addEventListener('DOMContentLoaded', function() {
+            var av = new Image();
+            av.onload = function() {
+                var stillImg = new Image();
+                stillImg.onload = function() {
+                    renderAll(stillImg, av);
+                };
+                stillImg.onerror = function() {
+                    var generatedStill = buildCinematicBackdrop(1080, 1920);
+                    renderAll(generatedStill, av);
+                };
+                stillImg.src = '../../assets/cinematic_still.png';
+            };
+            av.src = '../../assets/sample_avatar.png';
+        });
+
+        function renderAll(backdropImg, avatarImg) {
+            var miniCanvas = document.getElementById('mini-canvas');
+            var monitorCanvas = document.getElementById('monitor-canvas');
+            var phoneCanvas = document.getElementById('phone-canvas');
+
+            // 1. Mini Canvas: pure guide layout with Feed 4:5
+            ReelsRenderer.render(miniCanvas, {
+                platform: 'reels',
+                username: 'alptugdag',
+                isVerified: true,
+                showFollow: true,
+                caption: 'Bu eklenti @alptugdag tarafından yapılmıştır, destek için takip edebilirsin, kolay gelsin!',
+                audioName: 'alptugdag · Orijinal Ses',
+                likesCount: '12.4K',
+                commentsCount: '348',
+                savesCount: '9.8K',
+                sharesCount: '1.2K',
+                showSafeZones: true,
+                showSubtitleZone: true,
+                showMockUi: true,
+                overlayOpacity: 1.0,
+                avatarImage: avatarImg,
+                videoFrameImage: null,
+                targetWidth: 1080,
+                targetHeight: 1920
+            });
+            AlptuguideCompGuides.draw(miniCanvas.getContext('2d'), 1080, 1920, { feed45: true, thirds: false, center: false });
+
+            // 2. Program Monitor Canvas: Real video backdrop + 1:1 Safe-Zone boundaries + UI overlay (just as editor sees on screen!)
+            ReelsRenderer.render(monitorCanvas, {
+                platform: 'reels',
+                username: 'alptugdag',
+                isVerified: true,
+                showFollow: true,
+                caption: 'Bu eklenti @alptugdag tarafından yapılmıştır, destek için takip edebilirsin, kolay gelsin!',
+                audioName: 'alptugdag · Orijinal Ses',
+                likesCount: '12.4K',
+                commentsCount: '348',
+                savesCount: '9.8K',
+                sharesCount: '1.2K',
+                showSafeZones: true,
+                showSubtitleZone: true,
+                showMockUi: true,
+                overlayOpacity: 0.95,
+                avatarImage: avatarImg,
+                videoFrameImage: backdropImg,
+                targetWidth: 1080,
+                targetHeight: 1920
+            });
+            AlptuguideCompGuides.draw(monitorCanvas.getContext('2d'), 1080, 1920, { feed45: true });
+
+            // 3. Mobile Canvas: Realistic final video playback on phone (with video backdrop & UI)
+            ReelsRenderer.render(phoneCanvas, {
+                platform: 'reels',
+                username: 'alptugdag',
+                isVerified: true,
+                showFollow: true,
+                caption: 'Bu eklenti @alptugdag tarafından yapılmıştır, destek için takip edebilirsin, kolay gelsin!',
+                audioName: 'alptugdag · Orijinal Ses',
+                likesCount: '12.4K',
+                commentsCount: '348',
+                savesCount: '9.8K',
+                sharesCount: '1.2K',
+                showSafeZones: false,
+                showSubtitleZone: false,
+                showMockUi: true,
+                overlayOpacity: 1.0,
+                avatarImage: avatarImg,
+                videoFrameImage: backdropImg,
+                targetWidth: 1080,
+                targetHeight: 1920
+            });
+
+            window.__isReady = true;
+        }
+    </script>
+</body>
+</html>

@@ -41,7 +41,7 @@
 - **Milimetrik Hizalama:** Ok tuşlarıyla `1 px` (Shift ile `10 px`) hassas kaydırma ve `+` / `-` tuşlarıyla anında ölçekleme.
 
 <p align="center">
-  <img src="docs/screenshots/liquid_glass_panel.png" alt="Alptuguide Studio Liquid Glass Panel" width="60%">
+  <img src="docs/screenshots/liquid_glass_panel.png" alt="Alptuguide Studio Liquid Glass Panel" width="420">
 </p>
 
 ---

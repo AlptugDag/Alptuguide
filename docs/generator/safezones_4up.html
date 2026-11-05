@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8">
+    <title>Alptuguide 4-Up Safe-Zones</title>
+    <style>
+        @font-face { font-family: 'Inter'; src: url('../../assets/fonts/Inter-Regular.ttf'); font-weight: 400; }
+        @font-face { font-family: 'Inter'; src: url('../../assets/fonts/Inter-Medium.ttf'); font-weight: 500; }
+        @font-face { font-family: 'Inter'; src: url('../../assets/fonts/Inter-SemiBold.ttf'); font-weight: 600; }
+        @font-face { font-family: 'Inter'; src: url('../../assets/fonts/Inter-Bold.ttf'); font-weight: 700; }
+        @font-face { font-family: 'Montserrat'; src: url('../../assets/fonts/Montserrat-Medium.ttf'); font-weight: 500; }
+        @font-face { font-family: 'Montserrat'; src: url('../../assets/fonts/Montserrat-SemiBold.ttf'); font-weight: 600; }
+        @font-face { font-family: 'Montserrat'; src: url('../../assets/fonts/Montserrat-Bold.ttf'); font-weight: 700; }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            width: 2400px;
+            height: 1350px;
+            background: #07090e;
+            font-family: 'Inter', -apple-system, sans-serif;
+            color: #eef1f6;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            user-select: none;
+        }
+
+        /* Ambient Lighting */
+        .ambient-glow {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(140px);
+            pointer-events: none;
+            opacity: 0.5;
+        }
+        .glow-1 { width: 900px; height: 900px; top: -200px; left: 200px; background: radial-gradient(circle, rgba(16, 185, 129, 0.22) 0%, transparent 70%); }
+        .glow-2 { width: 900px; height: 900px; top: -200px; right: 200px; background: radial-gradient(circle, rgba(245, 158, 11, 0.22) 0%, transparent 70%); }
+
+        .studio-grid {
+            position: absolute;
+            inset: 0;
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+            background-size: 80px 80px;
+            pointer-events: none;
+        }
+
+        .header-bar {
+            position: relative;
+            z-index: 10;
+            padding: 45px 80px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+        .header-title-group h1 {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 38px;
+            font-weight: 800;
+            background: linear-gradient(180deg, #ffffff 30%, #cbd5e1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .header-title-group p {
+            font-size: 18px;
+            color: #94a3b8;
+            margin-top: 6px;
+            font-weight: 500;
+        }
+        .header-title-group p strong {
+            color: #38bdf8;
+        }
+        .header-ref-badge {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 22px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            font-size: 15px;
+            font-weight: 700;
+            color: #34d399;
+        }
+
+        /* 4 Cards Grid */
+        .cards-grid {
+            position: relative;
+            z-index: 10;
+            flex: 1;
+            padding: 10px 80px 50px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 36px;
+        }
+
+        .platform-card {
+            background: rgba(15, 20, 31, 0.75);
+            border-radius: 28px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 
+                inset 0 1px 0 rgba(255, 255, 255, 0.18),
+                0 25px 60px rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(30px);
+            padding: 22px 20px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        .platform-card.emerald { border-color: rgba(16, 185, 129, 0.45); }
+        .platform-card.cyan { border-color: rgba(6, 182, 212, 0.45); }
+        .platform-card.red { border-color: rgba(239, 68, 68, 0.45); }
+        .platform-card.amber { border-color: rgba(245, 158, 11, 0.45); }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .card-title-group h2 {
+            font-size: 21px;
+            font-weight: 800;
+            color: #ffffff;
+        }
+        .card-title-group span {
+            font-size: 13px;
+            font-weight: 600;
+            color: #94a3b8;
+        }
+        .card-badge {
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .badge-emerald { background: rgba(16, 185, 129, 0.16); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
+        .badge-cyan { background: rgba(6, 182, 212, 0.16); color: #22d3ee; border: 1px solid rgba(6, 182, 212, 0.4); }
+        .badge-red { background: rgba(239, 68, 68, 0.16); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); }
+        .badge-amber { background: rgba(245, 158, 11, 0.16); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+
+        .card-screen-wrap {
+            flex: 1;
+            background: #000;
+            border-radius: 18px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            display: grid;
+            place-items: center;
+        }
+        .card-screen-wrap canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .card-specs-pill {
+            padding: 10px 14px;
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.45);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            font-size: 13px;
+            font-weight: 600;
+            color: #cbd5e1;
+            text-align: center;
+            line-height: 1.4;
+        }
+        .card-specs-pill strong {
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="ambient-glow glow-1"></div>
+    <div class="ambient-glow glow-2"></div>
+    <div class="studio-grid"></div>
+
+    <header class="header-bar">
+        <div class="header-title-group">
+            <h1>1:1 Doğrulanmış Sosyal Medya Güvenli Alanları</h1>
+            <p>Meta, TikTok Creative Center ve YouTube Studio standartlarına göre <strong>piksel hassasiyetinde</strong> kalibre edilmiştir.</p>
+        </div>
+        <div class="header-ref-badge">
+            <span>1080 × 1920 (9:16) Referans & Otomatik 4K Ölçekleme</span>
+        </div>
+    </header>
+
+    <main class="cards-grid">
+        <!-- 1. Reels -->
+        <div class="platform-card emerald">
+            <div class="card-header">
+                <div class="card-title-group">
+                    <h2>Instagram Reels</h2>
+                    <span>Meta Resmi Tasarım Standardı</span>
+                </div>
+                <span class="card-badge badge-emerald">Meta 1:1</span>
+            </div>
+            <div class="card-screen-wrap">
+                <canvas id="c-reels" width="1080" height="1920"></canvas>
+            </div>
+            <div class="card-specs-pill">
+                Üst <strong>269 px</strong> · Alt <strong>672 px</strong> (440 UI)<br>
+                Sol <strong>65 px</strong> · Sağ <strong>146 px</strong>
+            </div>
+        </div>
+
+        <!-- 2. TikTok -->
+        <div class="platform-card cyan">
+            <div class="card-header">
+                <div class="card-title-group">
+                    <h2>TikTok</h2>
+                    <span>TikTok Creative Center Standardı</span>
+                </div>
+                <span class="card-badge badge-cyan">TikTok 1:1</span>
+            </div>
+            <div class="card-screen-wrap">
+                <canvas id="c-tiktok" width="1080" height="1920"></canvas>
+            </div>
+            <div class="card-specs-pill">
+                Üst <strong>252 px</strong> · Alt <strong>620 px</strong> (490 UI)<br>
+                Sol <strong>60 px</strong> · Sağ <strong>184 px</strong>
+            </div>
+        </div>
+
+        <!-- 3. Shorts -->
+        <div class="platform-card red">
+            <div class="card-header">
+                <div class="card-title-group">
+                    <h2>YouTube Shorts</h2>
+                    <span>YouTube Studio 9:16 Standardı</span>
+                </div>
+                <span class="card-badge badge-red">Shorts 1:1</span>
+            </div>
+            <div class="card-screen-wrap">
+                <canvas id="c-shorts" width="1080" height="1920"></canvas>
+            </div>
+            <div class="card-specs-pill">
+                Üst <strong>288 px</strong> · Alt <strong>672 px</strong> (480 UI)<br>
+                Sol <strong>48 px</strong> · Sağ <strong>192 px</strong>
+            </div>
+        </div>
+
+        <!-- 4. Ortak -->
+        <div class="platform-card amber">
+            <div class="card-header">
+                <div class="card-title-group">
+                    <h2>Ortak Kılavuz</h2>
+                    <span>3 Platformun En Sıkı Kesişimi</span>
+                </div>
+                <span class="card-badge badge-amber">3'ü Bir Arada</span>
+            </div>
+            <div class="card-screen-wrap">
+                <canvas id="c-all" width="1080" height="1920"></canvas>
+            </div>
+            <div class="card-specs-pill">
+                Üst <strong>288 px</strong> · Alt <strong>672 px</strong> (490 UI)<br>
+                <strong>823 × 960 px</strong> Net Merkez Alan
+            </div>
+        </div>
+    </main>
+
+    <!-- Core Scripts -->
+    <script src="../../core/safezones.js"></script>
+    <script src="../../core/layout.js"></script>
+    <script src="../../core/renderer.js"></script>
+    <script src="../../core/compguides.js"></script>
+    <script>
+        window.__isReady = false;
+        window.addEventListener('DOMContentLoaded', function() {
+            var av = new Image();
+            av.onload = function() {
+                var bg = new Image();
+                bg.onload = function() { render4(bg, av); };
+                bg.onerror = function() { render4(null, av); };
+                bg.src = '../../assets/cinematic_still.png';
+            };
+            av.src = '../../assets/sample_avatar.png';
+        });
+
+        function render4(bgImg, avImg) {
+            ['reels', 'tiktok', 'shorts', 'all'].forEach(function(p) {
+                var c = document.getElementById('c-' + p);
+                ReelsRenderer.render(c, {
+                    platform: p,
+                    username: 'alptugdag',
+                    isVerified: true,
+                    showFollow: true,
+                    caption: 'Bu eklenti @alptugdag tarafından yapılmıştır, destek için takip edebilirsin, kolay gelsin!',
+                    audioName: 'alptugdag · Orijinal Ses',
+                    likesCount: '12.4K',
+                    commentsCount: '348',
+                    savesCount: '9.8K',
+                    sharesCount: '1.2K',
+                    showSafeZones: true,
+                    showSubtitleZone: true,
+                    showMockUi: true,
+                    overlayOpacity: 0.95,
+                    avatarImage: avImg,
+                    videoFrameImage: bgImg,
+                    targetWidth: 1080,
+                    targetHeight: 1920
+                });
+            });
+            window.__isReady = true;
+        }
+    </script>
+</body>
+</html>

@@ -431,10 +431,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         editItem = NSMenuItem(title: "Overlay'i Hizala / Boyutlandır", action: #selector(toggleEdit), keyEquivalent: "e")
         visibleItem = NSMenuItem(title: "Overlay'i Gizle", action: #selector(toggleVisible), keyEquivalent: "h")
         alwaysOnTopItem = NSMenuItem(title: "Her Uygulamada Göster (Standalone Mod)", action: #selector(toggleAlwaysShow), keyEquivalent: "a")
+        let snapMonitorItem = NSMenuItem(title: "Program Monitörüne Kenetle (Otomatik Hizala)", action: #selector(snapToProgramMonitor), keyEquivalent: "m")
 
         menu.addItem(studioItem)
         menu.addItem(.separator())
         menu.addItem(editItem)
+        menu.addItem(snapMonitorItem)
         menu.addItem(visibleItem)
         menu.addItem(alwaysOnTopItem)
         menu.addItem(NSMenuItem(title: "Overlay Konumunu Sıfırla", action: #selector(resetFrame), keyEquivalent: "r"))
@@ -618,6 +620,75 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         let h = screen.height * 0.62
         let w = h * aspect
         window.setFrame(NSRect(x: screen.midX - w / 2, y: screen.midY - h / 2, width: w, height: h), display: true)
+        saveFrame()
+    }
+
+    @objc func snapToProgramMonitor() {
+        guard let screen = NSScreen.main else { return }
+        let screenH = screen.frame.height
+        let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
+        guard let infoList = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else {
+            resetFrame()
+            return
+        }
+
+        var matchedBounds: CGRect?
+        var hostMainBounds: CGRect?
+
+        for win in infoList {
+            let owner = (win[kCGWindowOwnerName as String] as? String ?? "").lowercased()
+            guard owner.contains("premiere") || owner.contains("davinci") || owner.contains("after effects") else { continue }
+            let name = (win[kCGWindowName as String] as? String ?? "").lowercased()
+            guard let bDict = win[kCGWindowBounds as String] as? [String: CGFloat],
+                  let x = bDict["X"], let y = bDict["Y"],
+                  let w = bDict["Width"], let h = bDict["Height"],
+                  w > 160, h > 160 else { continue }
+
+            let rect = CGRect(x: x, y: y, width: w, height: h)
+            if name.contains("program") || name.contains("viewer") || name.contains("composition") {
+                matchedBounds = rect
+                break
+            }
+            if hostMainBounds == nil || (w * h) > (hostMainBounds!.width * hostMainBounds!.height) {
+                hostMainBounds = rect
+            }
+        }
+
+        let targetCG: CGRect
+        if let m = matchedBounds {
+            targetCG = m.insetBy(dx: 16, dy: 42)
+        } else if let main = hostMainBounds {
+            targetCG = CGRect(
+                x: main.origin.x + main.width * 0.50,
+                y: main.origin.y + main.height * 0.08,
+                width: main.width * 0.46,
+                height: main.height * 0.50
+            )
+        } else {
+            resetFrame()
+            return
+        }
+
+        let cocoaY = screenH - (targetCG.origin.y + targetCG.height)
+        let availW = max(100, targetCG.width)
+        let availH = max(100, targetCG.height)
+        let a = aspect
+        let fitW: CGFloat
+        let fitH: CGFloat
+        if availW / availH > a {
+            fitH = availH
+            fitW = fitH * a
+        } else {
+            fitW = availW
+            fitH = fitW / a
+        }
+        let finalRect = NSRect(
+            x: targetCG.origin.x + (availW - fitW) / 2,
+            y: cocoaY + (availH - fitH) / 2,
+            width: fitW,
+            height: fitH
+        )
+        window.setFrame(finalRect, display: true)
         saveFrame()
     }
 

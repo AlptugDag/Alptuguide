@@ -180,6 +180,50 @@ function setPremiereGuide(filePath, enable) {
 function getActiveFootageInfo() {
     try {
         var host = getHostApp();
+        if (host === "AEFT") {
+            var comp = _activeComp();
+            if (!comp) return _json({ ok: false, message: "Aktif Composition yok" });
+            var curTime = Number(comp.time) || 0;
+            var chosenLayer = null;
+            for (var l = 1; l <= comp.numLayers; l++) {
+                var lyr = comp.layer(l);
+                if (!lyr || !lyr.enabled || lyr.guideLayer || lyr.name === GUIDE_LAYER_NAME) continue;
+                if (lyr.source && lyr.source.file && lyr.source.file.fsName) {
+                    chosenLayer = {
+                        media: lyr.source.file.fsName,
+                        clipName: lyr.name || comp.name,
+                        sourceTime: Math.max(0, curTime - (Number(lyr.startTime) || 0))
+                    };
+                    if (curTime >= (Number(lyr.inPoint) || 0) && curTime <= (Number(lyr.outPoint) || comp.duration)) {
+                        break;
+                    }
+                }
+            }
+            if (!chosenLayer) {
+                return _json({
+                    ok: true,
+                    mediaPath: "",
+                    playerPos: curTime,
+                    sourceTime: curTime,
+                    clipName: comp.name,
+                    width: comp.width,
+                    height: comp.height,
+                    duration: comp.duration,
+                    seqName: comp.name
+                });
+            }
+            return _json({
+                ok: true,
+                mediaPath: chosenLayer.media,
+                playerPos: curTime,
+                sourceTime: chosenLayer.sourceTime,
+                clipName: chosenLayer.clipName,
+                width: comp.width,
+                height: comp.height,
+                duration: comp.duration,
+                seqName: comp.name
+            });
+        }
         if (host !== "PPRO") return _json({ ok: false, message: "PPRO değil" });
         if (!app.project) return _json({ ok: false, message: "Proje açık değil" });
         var seq = app.project.activeSequence;
@@ -459,6 +503,10 @@ function createVerticalVersion(w, h) {
     }
 }
 
+function autoReframeSequence(w, h) {
+    return createVerticalVersion(w || 1080, h || 1920);
+}
+
 try { bindHostEvents(); } catch (bindErr) {}
 
 function inspectActiveSequence() {
@@ -573,7 +621,7 @@ function applyViralRetentionHook(optionsJson) {
         try { opt = typeof optionsJson === "string" ? JSON.parse(optionsJson) : (optionsJson || {}); } catch (e) {}
 
         var style = opt.style || "punch_zoom";
-        var hookTitle = opt.title || (style === "hormozi_title" ? "⚡ DİKKATLE İZLEYİN!" : "⚡ BUNU BİLMİYORDUNUZ!");
+        var hookTitle = opt.title || (style === "hormozi_title" ? "DİKKATLE İZLEYİN!" : "BUNU BİLMİYORDUNUZ!");
         var hookDurationSec = 3.0; // İlk 3 saniye evrensel viral kuralı
 
         // 1. Video kanalı 1'deki ilk klibi bul
@@ -731,7 +779,7 @@ function applyViralRetentionHook(optionsJson) {
             if (markers) {
                 var mkr = markers.createMarker(0.0);
                 if (mkr) {
-                    mkr.name = "⚡ [" + hookTitle + "]";
+                    mkr.name = "[" + hookTitle + "]";
                     mkr.comments = "Viral Hook Stili: " + style.toUpperCase() + " (İlk 3 Saniye Retention Garantisi)";
                     mkr.end = new Time(); mkr.end.seconds = hookDurationSec;
                 }

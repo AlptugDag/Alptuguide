@@ -39,6 +39,21 @@
         ctx.fillText(text, x + pad, y + th / 2 + 1);
     }
 
+    function tagRight(ctx, text, rightX, y, color, s) {
+        ctx.font = '700 ' + Math.round(18 * s) + 'px Montserrat, Inter, -apple-system, sans-serif';
+        var pad = 10 * s, tw = ctx.measureText(text).width + pad * 2, th = 28 * s;
+        var x = rightX - tw;
+        ctx.fillStyle = 'rgba(8, 10, 15, 0.82)';
+        ctx.fillRect(x, y, tw, th);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = Math.max(1, 1.5 * s);
+        ctx.strokeRect(x, y, tw, th);
+        ctx.fillStyle = color;
+        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'left';
+        ctx.fillText(text, x + pad, y + th / 2 + 1);
+    }
+
     function draw(ctx, w, h, opts) {
         opts = opts || {};
         var s = Math.min(w / 1080, h / 1920) || 1;
@@ -88,7 +103,8 @@
             ctx.setLineDash([16 * s, 10 * s]);
             ctx.strokeRect(r.x + 1, r.y, r.w - 2, r.h);
             ctx.setLineDash([]);
-            tag(ctx, cfg.label, r.x + 10 * s, r.y + 10 * s, cfg.color, s);
+            var labelY = Math.max(12 * s, r.y - 34 * s);
+            tagRight(ctx, cfg.label, r.x + r.w - 16 * s, labelY, cfg.color, s);
         });
 
         ctx.restore();

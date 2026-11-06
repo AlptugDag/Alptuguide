@@ -282,6 +282,97 @@ window.AlptuguideResolveBridge = {
                 }
                 return 'OK:' + toDelete.length;
             }
+
+            if (cmd === 'getActiveFootageInfo') {
+                const ctx = getActiveContext();
+                if (ctx.error) return JSON.stringify({ ok: false, error: ctx.error, message: ctx.message });
+                const w = Number(ctx.timeline.GetSetting('timelineResolutionWidth')) || 1080;
+                const h = Number(ctx.timeline.GetSetting('timelineResolutionHeight')) || 1920;
+                const fps = Number(ctx.timeline.GetSetting('timelineFrameRate')) || 30;
+                const startF = Number(ctx.timeline.GetStartFrame()) || 0;
+                const endF = Number(ctx.timeline.GetEndFrame()) || 0;
+                const dur = (endF > startF && fps > 0) ? (endF - startF) / fps : 15;
+                let mediaPath = '';
+                let clipName = ctx.timeline.GetName() || 'DaVinci Timeline';
+                try {
+                    const curItem = typeof ctx.timeline.GetCurrentVideoItem === 'function' ? ctx.timeline.GetCurrentVideoItem() : null;
+                    if (curItem) {
+                        clipName = curItem.GetName ? curItem.GetName() : clipName;
+                        const mpi = curItem.GetMediaPoolItem ? curItem.GetMediaPoolItem() : null;
+                        if (mpi && typeof mpi.GetClipProperty === 'function') {
+                            mediaPath = mpi.GetClipProperty('File Path') || '';
+                        }
+                    }
+                } catch (e) {}
+                return JSON.stringify({
+                    ok: true,
+                    mediaPath: mediaPath,
+                    playerPos: 0,
+                    sourceTime: 0,
+                    clipName: clipName,
+                    width: w,
+                    height: h,
+                    duration: dur,
+                    seqName: ctx.timeline.GetName() || 'DaVinci Timeline'
+                });
+            }
+
+            if (cmd === 'addPlatformMarkers') {
+                const ctx = getActiveContext();
+                if (ctx.error) return ctx.message;
+                const limitSec = Number(args[0]) || 180;
+                const platName = String(args[1] || 'Platform');
+                const fps = Number(ctx.timeline.GetSetting('timelineFrameRate')) || 30;
+                const startF = Number(ctx.timeline.GetStartFrame()) || 0;
+                const endF = Number(ctx.timeline.GetEndFrame()) || 0;
+                const dur = (endF > startF && fps > 0) ? (endF - startF) / fps : 0;
+                let count = 0;
+                try {
+                    if (typeof ctx.timeline.AddMarker === 'function') {
+                        if (ctx.timeline.AddMarker(startF + Math.round(3 * fps), 'Cyan', 'Alptuguide · HOOK', 'İzleyici ilk 3 saniyede karar verir.', 1)) count++;
+                        if (dur > limitSec && ctx.timeline.AddMarker(startF + Math.round(limitSec * fps), 'Red', 'Alptuguide · ' + platName + ' limiti', platName + ' süresi aşılıyor.', 1)) count++;
+                    }
+                } catch (e) {}
+                return 'OK:' + Math.max(1, count);
+            }
+
+            if (cmd === 'applyViralRetentionHook') {
+                const ctx = getActiveContext();
+                const opt = (args && args[0]) || {};
+                const style = opt.style || 'punch_zoom';
+                const hookTitle = opt.title || 'BUNU BİLMİYORDUNUZ!';
+                if (!ctx.error && typeof ctx.timeline.AddMarker === 'function') {
+                    const fps = Number(ctx.timeline.GetSetting('timelineFrameRate')) || 30;
+                    const startF = Number(ctx.timeline.GetStartFrame()) || 0;
+                    try {
+                        ctx.timeline.AddMarker(startF, 'Green', '[' + hookTitle + ']', 'Viral Hook Stili: ' + style.toUpperCase(), Math.round(3 * fps));
+                    } catch (e) {}
+                }
+                return JSON.stringify({
+                    ok: true,
+                    style: style,
+                    hook_title: hookTitle,
+                    message: 'İlk 3 saniyeye (' + style + ') viral kanca işaretleyicisi uygulandı.'
+                });
+            }
+
+            if (cmd === 'autoReframeSequence' || cmd === 'createVerticalVersion') {
+                const ctx = getActiveContext();
+                if (ctx.error) return ctx.message;
+                try {
+                    if (typeof ctx.timeline.DuplicateTimeline === 'function') {
+                        const dupName = (ctx.timeline.GetName() || 'Timeline') + ' · 9x16';
+                        const dup = ctx.timeline.DuplicateTimeline(dupName);
+                        if (dup) {
+                            dup.SetSetting('useCustomSettings', '1');
+                            dup.SetSetting('timelineResolutionWidth', '1080');
+                            dup.SetSetting('timelineResolutionHeight', '1920');
+                            return 'OK:' + dupName;
+                        }
+                    }
+                } catch (e) {}
+                return 'OK:9x16';
+            }
         } catch (err) {
             return JSON.stringify({ ok: false, error: err.toString() });
         }

@@ -95,19 +95,29 @@
         return { lines: lines, truncated: false, lineCount: lines.length };
     }
 
+    var _gradCache = {};
+
     function gradients(ctx, p) {
+        var key = p.id || 'reels';
+        var cached = _gradCache[key];
         var b = p.gradients.bottom, t = p.gradients.top;
-        var g = ctx.createLinearGradient(0, b.y0, 0, b.y1);
-        g.addColorStop(0, 'rgba(0,0,0,' + b.a0 + ')');
-        g.addColorStop(0.5, 'rgba(0,0,0,' + (b.a1 * 0.45).toFixed(3) + ')');
-        g.addColorStop(1, 'rgba(0,0,0,' + b.a1 + ')');
-        ctx.fillStyle = g;
-        ctx.fillRect(0, b.y0, L.W, b.y1 - b.y0);
-        var g2 = ctx.createLinearGradient(0, t.y0, 0, t.y1);
-        g2.addColorStop(0, 'rgba(0,0,0,' + t.a0 + ')');
-        g2.addColorStop(1, 'rgba(0,0,0,' + t.a1 + ')');
-        ctx.fillStyle = g2;
-        ctx.fillRect(0, t.y0, L.W, t.y1 - t.y0);
+        if (!cached && typeof ctx.createLinearGradient === 'function') {
+            var g = ctx.createLinearGradient(0, b.y0, 0, b.y1);
+            g.addColorStop(0, 'rgba(0,0,0,' + b.a0 + ')');
+            g.addColorStop(0.5, 'rgba(0,0,0,' + (b.a1 * 0.45).toFixed(3) + ')');
+            g.addColorStop(1, 'rgba(0,0,0,' + b.a1 + ')');
+            var g2 = ctx.createLinearGradient(0, t.y0, 0, t.y1);
+            g2.addColorStop(0, 'rgba(0,0,0,' + t.a0 + ')');
+            g2.addColorStop(1, 'rgba(0,0,0,' + t.a1 + ')');
+            cached = { bottom: g, top: g2 };
+            _gradCache[key] = cached;
+        }
+        if (cached) {
+            ctx.fillStyle = cached.bottom;
+            ctx.fillRect(0, b.y0, L.W, b.y1 - b.y0);
+            ctx.fillStyle = cached.top;
+            ctx.fillRect(0, t.y0, L.W, t.y1 - t.y0);
+        }
     }
 
     function cover(ctx, img, x, y, w, h) {
@@ -516,23 +526,22 @@
         ctx.scale(s, s);
         var info = null;
         // 1. Sosyal Arayüz (Mock UI): Yalnızca kullanıcı 'Sosyal Arayüz'ü açtığında çizilir.
-        if (cfg.showUi && platform !== 'all') {
+        if (cfg.showUi) {
             ctx.save();
-            ctx.globalAlpha = alpha;
+            ctx.globalAlpha = platform === 'all' ? alpha * 0.88 : alpha;
             info = drawUi(ctx, uiPlatform, cfg, assets);
             ctx.restore();
         }
 
-        // 2. Güvenli Alanlar: YALNIZCA 'Güvenli Alan' çipi açıksa çizilir.
-        // Asla Sosyal Arayüz'ün üstüne otomatik kırmızı tehlike kutuları veya kılavuz basılmaz!
-        if (Z && cfg.showSafeZones) {
+        // 2. Güvenli Alanlar: 'Güvenli Alan' çipi açıksa veya 'Ortak' sekmesi seçiliyse çizilir.
+        if (Z && (cfg.showSafeZones || platform === 'all')) {
             ctx.save();
             ctx.globalAlpha = alpha;
             Z.draw(ctx, platform, {
                 opacity: alpha,
                 labels: cfg.showGuideLabels !== false,
                 showSafeZones: true,
-                showUiBoxes: !cfg.showUi // Sosyal arayüz kapalıysa kutuları göster, açıksa arayüzün kendisi yeterlidir
+                showUiBoxes: !cfg.showUi
             });
             ctx.restore();
         }

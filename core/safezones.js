@@ -260,19 +260,22 @@
             ctx.restore();
 
             if (showLabels) {
-                var tag = 'TAM GÜVENLİ ALAN · ' + spec.name.toUpperCase() + ' · ' + rFull.w + '×' + rFull.h + ' px (X:' + rFull.x + '–' + (rFull.x + rFull.w) + ', Y:' + rFull.y + '–' + (rFull.y + rFull.h) + ')';
-                font(ctx, 700, 19);
-                var tw = Math.min(rFull.w - 16, ctx.measureText(tag).width + 26);
-                roundRect(ctx, rFull.x + 8, rFull.y + 8, tw, 34, 8);
-                ctx.fillStyle = 'rgba(6, 28, 20, 0.90)';
+                var shortName = spec.id === 'all' ? 'ORTAK (3 PLATFORM)' : spec.name.toUpperCase();
+                var tag = 'GÜVENLİ ALAN · ' + shortName + ' · ' + rFull.w + '×' + rFull.h + ' px';
+                font(ctx, 700, 20);
+                var tw = Math.min(rFull.w - 24, ctx.measureText(tag).width + 28);
+                var bx = rFull.x + (rFull.w - tw) / 2;
+                var by = rFull.y + 12;
+                roundRect(ctx, bx, by, tw, 36, 9);
+                ctx.fillStyle = 'rgba(6, 28, 20, 0.92)';
                 ctx.fill();
-                ctx.lineWidth = 1.5;
+                ctx.lineWidth = 1.8;
                 ctx.strokeStyle = '#10b981';
                 ctx.stroke();
                 ctx.fillStyle = '#6ee7b7';
-                ctx.textAlign = 'left';
+                ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText(tag, rFull.x + 20, rFull.y + 25);
+                ctx.fillText(tag, rFull.x + rFull.w / 2, by + 19);
             }
         }
         ctx.restore();

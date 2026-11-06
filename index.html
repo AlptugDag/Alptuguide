@@ -4,10 +4,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Alptuguide Studio</title>
+    <meta name="description" content="Instagram Reels, TikTok ve YouTube Shorts dikey video kurguları için 1:1 doğrulanmış güvenli alan kılavuzları, canlı telefon mockup önizlemesi ve NLE kurgu araçları stüdyosu.">
+    <meta property="og:title" content="Alptuguide Studio">
+    <meta property="og:description" content="Instagram Reels, TikTok ve YouTube Shorts dikey video kurguları için 1:1 doğrulanmış güvenli alan kılavuzları, canlı telefon mockup önizlemesi ve NLE kurgu araçları stüdyosu.">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <svg width="0" height="0" class="svg-defs" aria-hidden="true">
         <defs>
             <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
             <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.2M6.3 6.3C3.6 8 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.7-1.8M9.9 9.9a3 3 0 0 0 4.2 4.2"/></symbol>
@@ -20,9 +23,12 @@
             <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
             <symbol id="i-save" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></symbol>
             <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></symbol>
-            <symbol id="i-play" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3" fill="currentColor"/></symbol>
-            <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" fill="currentColor"/><rect x="14" y="4" width="4" height="16" fill="currentColor"/></symbol>
+            <symbol id="i-play" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3" fill="currentColor" stroke="none"/></symbol>
+            <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" fill="currentColor" stroke="none"/><rect x="14" y="4" width="4" height="16" fill="currentColor" stroke="none"/></symbol>
             <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></symbol>
+            <symbol id="i-bolt" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></symbol>
+            <symbol id="i-video" viewBox="0 0 24 24"><rect x="2" y="5" width="14" height="14" rx="2"/><polygon points="22 7 16 12 22 17 22 7"/></symbol>
+            <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
         </defs>
     </svg>
 
@@ -31,210 +37,245 @@
         <div class="brand">
             <img src="assets/imza.svg" class="brand-sig" alt="Alptuğ Dağ">
             <span class="brand-name">Alptuguide</span>
+            <span class="brand-badge" id="host-badge">STUDIO</span>
         </div>
         <button type="button" class="seq-chip" id="seq-chip" title="Sekans bilgisi — yenilemek için tıklayın">
             <span class="seq-dot" id="seq-dot"></span>
-            <span id="seq-text">Sekans bekleniyor…</span>
+            <span id="seq-text">1080×1920 · 60 fps · 9:16</span>
         </button>
     </header>
 
     <!-- Platform Tabs -->
-    <nav class="seg" role="tablist" id="platform-tabs">
-        <button type="button" class="seg-btn active" data-platform="reels">Reels</button>
-        <button type="button" class="seg-btn" data-platform="tiktok">TikTok</button>
-        <button type="button" class="seg-btn" data-platform="shorts">Shorts</button>
-        <button type="button" class="seg-btn" data-platform="all" title="3 platformun en sıkı ortak kesişimi">Ortak</button>
+    <nav class="seg" role="tablist" aria-label="Platform Seçimi" id="platform-tabs">
+        <button type="button" role="tab" aria-selected="true" class="seg-btn active" data-platform="reels">Reels</button>
+        <button type="button" role="tab" aria-selected="false" class="seg-btn" data-platform="tiktok">TikTok</button>
+        <button type="button" role="tab" aria-selected="false" class="seg-btn" data-platform="shorts">Shorts</button>
+        <button type="button" role="tab" aria-selected="false" class="seg-btn" data-platform="all" title="3 platformun en sıkı ortak kesişimi">Ortak</button>
     </nav>
 
-    <!-- Native Smartphone Mockup Viewport (Zero Timeline Writes, Zero Temp Files) -->
-    <section class="mockup-section">
-        <div class="mockup-header">
-            <div class="mockup-title-wrap">
-                <span class="mockup-live-dot"></span>
-                <strong>CANLI TELEFON MOCKUP</strong>
-            </div>
-            <div class="mockup-actions">
-                <button type="button" class="btn-mockup-action" id="btn-sync-timeline" title="Premiere Pro CTI (İmleç) ile anında eşitle">
-                    <svg class="ico"><use href="#i-refresh"/></svg>
-                    <span>Timeline Eşitle</span>
-                </button>
-                <button type="button" class="btn-mockup-action" id="btn-play-pause" title="Oynat / Duraklat (Boşluk tuşu)">
-                    <svg class="ico" id="play-pause-icon"><use href="#i-play"/></svg>
-                    <span id="play-pause-text">Oynat</span>
-                </button>
-            </div>
-        </div>
-
-        <div class="phone-frame-container">
-            <div class="phone-frame" id="phone-frame-target" title="Oynatmak / duraklatmak için tıklayın">
-                <!-- Outer Titanium Dynamic Island -->
-                <div class="phone-speaker-dynamic-island">
-                    <span class="sensor-cam"></span>
+    <main class="studio-layout">
+        <!-- Left / Top Column: Native Smartphone Mockup Viewport -->
+        <section class="mockup-section studio-col-preview" aria-label="Canlı Telefon Mockup Önizleme">
+            <div class="mockup-header">
+                <div class="mockup-title-wrap">
+                    <span class="mockup-live-dot" id="mockup-live-dot"></span>
+                    <strong>CANLI TELEFON MOCKUP</strong>
                 </div>
+                <div class="mockup-actions">
+                    <button type="button" class="btn-mockup-action" id="btn-mercury-stream" title="Adobe Mercury Transmit (Paylaşımlı Bellek / WebGL2) 60fps Canlı Akışı Aç/Kapat">
+                        <svg class="ico"><use href="#i-monitor"/></svg>
+                        <span id="mercury-stream-text">Mercury</span>
+                    </button>
+                    <button type="button" class="btn-mockup-action" id="btn-load-media" title="Bilgisayardan test videosu veya görsel yükle">
+                        <svg class="ico"><use href="#i-video"/></svg>
+                        <span>Medya</span>
+                    </button>
+                    <input type="file" id="media-file-input" accept="video/*,image/*" hidden>
+                    <button type="button" class="btn-mockup-action" id="btn-sync-timeline" title="NLE Timeline (CTI İmleci) ile anında eşitle">
+                        <svg class="ico"><use href="#i-refresh"/></svg>
+                        <span>Eşitle</span>
+                    </button>
+                    <button type="button" class="btn-mockup-action" id="btn-play-pause" title="Oynat / Duraklat (Boşluk tuşu)">
+                        <svg class="ico" id="play-pause-icon"><use href="#i-play"/></svg>
+                        <span id="play-pause-text">Oynat</span>
+                    </button>
+                </div>
+            </div>
 
-                <!-- Phone Screen -->
-                <div class="phone-screen" id="phone-screen">
-                    <!-- HTML5 Hardware Accelerated Video (Zero Disk I/O, Direct Local GPU) -->
-                    <video id="mockup-video" muted playsinline loop></video>
-                    <!-- Fallback placeholder if no video loaded -->
-                    <div class="mockup-placeholder" id="mockup-placeholder">
-                        <svg class="ico lg"><use href="#i-reframe"/></svg>
-                        <span>Video Bekleniyor</span>
-                        <small>Premiere'deki video doğrudan GPU ile oynatılır</small>
+            <div class="phone-frame-container">
+                <div class="phone-frame" id="phone-frame-target">
+                    <!-- Outer Titanium Dynamic Island -->
+                    <div class="phone-speaker-dynamic-island">
+                        <span class="sensor-cam"></span>
                     </div>
-                    <!-- Live Overlay Canvas: Safe Zones + Social Interface + Guides -->
-                    <canvas id="mockup-canvas"></canvas>
-                </div>
 
-                <!-- Home Bar Indicator -->
-                <div class="phone-home-bar"></div>
-            </div>
-        </div>
+                    <!-- Phone Screen -->
+                    <div class="phone-screen" id="phone-screen" title="Oynatmak / duraklatmak için tıklayın veya video sürükleyip bırakın">
+                        <!-- GPU-Accelerated Media Stage (Video + Fallback Still + Mercury Transmit WebGL2 Stream) -->
+                        <div class="phone-media-stage" id="phone-media-stage">
+                            <img id="mockup-preview-img" src="assets/cinematic_still.png" alt="Canlı Önizleme Karesi">
+                            <video id="mockup-video" muted playsinline loop preload="metadata"></video>
+                            <canvas id="mercury-stream-canvas" hidden></canvas>
+                        </div>
 
-        <!-- Timecode / Status line under mockup -->
-        <div class="mockup-footer">
-            <span id="mockup-timecode">00:00:00 / 00:00:00</span>
-            <span id="mockup-file-label">Medya bekleniyor…</span>
-        </div>
-    </section>
+                        <!-- Strobe / Glitch Flash Effect Layer -->
+                        <div class="hook-flash-overlay" id="hook-flash-overlay"></div>
 
-    <!-- Guide Overlay Layer Controls -->
-    <section class="card section-card">
-        <div class="section-title">Kılavuz Katmanları</div>
-        <div class="chips-grid" id="layer-chips">
-            <button type="button" class="chip" data-key="showSafeZones">Güvenli Alan</button>
-            <button type="button" class="chip on" data-key="showMockUi">Sosyal Arayüz</button>
-            <button type="button" class="chip" data-key="feed45" title="Instagram akışında 4:5 kırpma">Feed 4:5</button>
-            <button type="button" class="chip" data-key="showSubtitleZone" title="Altyazı ve CTA güvenli sınırı">Altyazı Sınırı</button>
-            <button type="button" class="chip" data-key="thirds" title="Üçte bir kuralı kılavuz çizgileri">Üçte Bir (3x3)</button>
-            <button type="button" class="chip" data-key="center" title="Merkez artı işareti">Merkez Artı</button>
-            <button type="button" class="chip" data-key="grid34" title="Instagram profil ızgarası 3:4 kırpma">Grid 3:4</button>
-            <button type="button" class="chip" data-key="broadcast" title="Action %90 / Title %80">Broadcast</button>
-        </div>
+                        <!-- Kinetic Viral Hook Title Overlay -->
+                        <div class="hook-title-overlay" id="hook-title-overlay" aria-hidden="true">
+                            <span class="hook-title-badge" id="hook-title-badge">BUNU BİLMİYORDUNUZ!</span>
+                        </div>
 
-        <div class="slider-row">
-            <span class="slider-label">Opaklık</span>
-            <input type="range" id="input-opacity" min="20" max="100" step="5" value="100">
-            <output id="opacity-val">100%</output>
-        </div>
-    </section>
+                        <!-- Fallback placeholder if media intentionally cleared -->
+                        <div class="mockup-placeholder" id="mockup-placeholder" hidden>
+                            <svg class="ico lg"><use href="#i-reframe"/></svg>
+                            <span>Video Bekleniyor</span>
+                            <small>Premiere'deki video doğrudan GPU ile oynatılır</small>
+                        </div>
 
-    <!-- Social Interface Settings (Profil & İçerik) -->
-    <details class="card fold" id="fold-profile" open>
-        <summary>
-            <span>Sosyal Arayüz Ayarları</span>
-            <svg class="ico chev"><use href="#i-chev"/></svg>
-        </summary>
-        <div class="fold-body">
-            <div class="row">
-                <select id="preset-selector" class="field" title="Kayıtlı profil"></select>
-                <button type="button" class="btn-icon sm" id="btn-save-preset" title="Profili kaydet"><svg class="ico"><use href="#i-save"/></svg></button>
-                <button type="button" class="btn-icon sm danger" id="btn-delete-preset" title="Profili sil"><svg class="ico"><use href="#i-trash"/></svg></button>
-            </div>
-            <div class="row">
-                <label class="avatar" for="avatar-input" title="Profil fotoğrafı yükle">
-                    <img id="avatar-img-preview" src="assets/sample_avatar.png" alt="">
-                    <svg class="ico"><use href="#i-upload"/></svg>
-                </label>
-                <input type="file" id="avatar-input" accept="image/*" hidden>
-                <div class="field prefix"><span>@</span><input type="text" id="input-username" placeholder="kullanıcı adı" value="alptugdag"></div>
-            </div>
-            <div class="chips-row">
-                <button type="button" class="chip on" data-key="isVerified">Mavi Tik</button>
-                <button type="button" class="chip on" data-key="showFollow" id="chip-follow">Takip Et</button>
-            </div>
-            <textarea id="input-caption" class="field" rows="2" placeholder="Video açıklaması / caption">Bu eklenti @alptugdag tarafından yapılmıştır, destek için takip edebilirsin, kolay gelsin!</textarea>
-            <input type="text" id="input-audio" class="field" placeholder="Ses / müzik adı" value="alptugdag · Orijinal Ses">
-            <div class="metrics">
-                <label><span id="metric-like-text">Beğeni</span><input type="text" id="input-likes" class="field" value="12.4K"></label>
-                <label><span>Yorum</span><input type="text" id="input-comments" class="field" value="348"></label>
-                <label id="metric-box-saves"><span>Kaydet</span><input type="text" id="input-saves" class="field" value="8.1K"></label>
-                <label><span id="metric-share-text">Paylaş</span><input type="text" id="input-shares" class="field" value="1.2K"></label>
-            </div>
-        </div>
-    </details>
+                        <!-- Live Overlay Canvas: Safe Zones + Social Interface + Guides -->
+                        <canvas id="mockup-canvas" data-testid="mockup-canvas"></canvas>
+                    </div>
 
-    <!-- Viral Hook & Yapay Zeka Motoru -->
-    <details class="card fold" id="fold-viral-hook" open>
-        <summary>
-            <span>⚡ Viral Kurgu &amp; Yapay Zeka (AI)</span>
-            <svg class="ico chev"><use href="#i-chev"/></svg>
-        </summary>
-        <div class="fold-body">
-            <div class="field-group">
-                <label class="field-label" style="font-size:10px; color:var(--text-muted); display:block; margin-bottom:3px;">Kanca / Retention Stili</label>
-                <select id="select-hook-style" class="field">
-                    <option value="punch_zoom" selected>🚀 Smooth Punch Zoom &amp; Sarsıntı</option>
-                    <option value="hormozi_title">🔥 Hormozi Pop Başlık &amp; Kanca</option>
-                    <option value="strobe_flash">⚡ Flaş Patlaması &amp; Hızlı İtiş</option>
-                    <option value="glitch_shock">💥 Glitch &amp; Kinetik Darbe</option>
-                    <option value="jump_snap">⏱️ Ritmik Sıçrama (Jump-Snap)</option>
-                    <option value="ai_smart">✨ Yapay Zeka (Gemini Otonom Seçim)</option>
-                </select>
-            </div>
-            <div class="field-group">
-                <label class="field-label" style="font-size:10px; color:var(--text-muted); display:block; margin-bottom:3px;">Özel Kanca Başlığı (Opsiyonel)</label>
-                <input type="text" id="input-hook-title" class="field" placeholder="Örn: BUNU BİLMİYORDUNUZ!">
-            </div>
-            <div class="field-group">
-                <label class="field-label" style="font-size:10px; color:var(--text-muted); display:block; margin-bottom:3px;">Gemini API Anahtarı (Google AI Studio)</label>
-                <div class="field prefix">
-                    <span>🔑</span>
-                    <input type="password" id="input-gemini-key" placeholder="AIzaSy... (buraya yapıştırın)">
+                    <!-- Home Bar Indicator -->
+                    <div class="phone-home-bar"></div>
                 </div>
             </div>
-            <button type="button" class="btn-primary" id="btn-apply-hook-main" style="width:100%; padding:8px; margin-top:2px; font-weight:600; font-size:11px; background:linear-gradient(135deg, #10b981, #059669); border:none; border-radius:var(--radius-sm); color:#fff; cursor:pointer;">
-                ⚡ İlk 3sn Viral Hook Uygula
-            </button>
-        </div>
-    </details>
 
-    <!-- Pro Editor Tools -->
-    <section class="card section-card">
-        <div class="section-title">Kurgu Araçları</div>
-        <div class="tools-grid">
-            <button type="button" class="tool-btn" id="btn-viral-hook" title="Seçili stilde ilk 3 saniyeye kanca uygular">
-                <svg class="ico"><use href="#i-marker"/></svg>
-                <span>⚡ Hızlı Hook</span>
-            </button>
-            <button type="button" class="tool-btn" id="btn-reframe" title="Orijinale dokunmadan 9:16 kopya oluşturur">
-                <svg class="ico"><use href="#i-reframe"/></svg>
-                <span>9:16 Kopya</span>
-            </button>
-            <button type="button" class="tool-btn" id="btn-markers" title="3. saniyeye HOOK ve süre limitine marker ekler">
-                <svg class="ico"><use href="#i-marker"/></svg>
-                <span>Hook &amp; Limit</span>
-            </button>
-            <button type="button" class="tool-btn" id="btn-insert-guides" title="Kılavuzu PNG klibi olarak timeline'a ekler">
-                <svg class="ico"><use href="#i-grid"/></svg>
-                <span>Kılavuz Klibi</span>
-            </button>
-            <button type="button" class="tool-btn" id="btn-insert-overlay" title="Arayüz simülasyonunu timeline'a ekler">
-                <svg class="ico"><use href="#i-layers"/></svg>
-                <span>Arayüz Klibi</span>
-            </button>
-            <button type="button" class="tool-btn" id="btn-export-png" title="Şeffaf kılavuz PNG'sini masaüstüne kaydeder">
-                <svg class="ico"><use href="#i-download"/></svg>
-                <span>PNG İndir</span>
-            </button>
-            <button type="button" class="tool-btn danger" id="btn-clean-timeline" title="Timeline'daki tüm Alptuguide katmanlarını temizler">
-                <svg class="ico"><use href="#i-trash"/></svg>
-                <span>Temizle</span>
-            </button>
+            <!-- Interactive Timeline Scrubber & Timecode Status -->
+            <div class="mockup-scrubber-wrap">
+                <input type="range" id="mockup-scrubber" class="mockup-scrubber" min="0" max="15" step="0.05" value="0" aria-label="Zaman çizelgesi konum çubuğu">
+                <div class="mockup-hook-zone" title="İlk 3 Saniye Viral Hook Bölgesi"></div>
+            </div>
+
+            <div class="mockup-footer">
+                <span id="mockup-timecode">0:00 / 0:15</span>
+                <span id="mockup-file-label">cinematic_still.png · GPU Hazır</span>
+            </div>
+        </section>
+
+        <!-- Right / Bottom Column: Controls & Pro Tools -->
+        <div class="studio-col-controls">
+            <!-- Guide Overlay Layer Controls -->
+            <section class="card section-card" aria-label="Kılavuz Katmanları">
+                <div class="section-header-row">
+                    <div class="section-title">Kılavuz Katmanları</div>
+                    <button type="button" class="btn-monitor-toggle" id="btn-monitor-toggle" title="NLE Program Monitörü / Yüzen Kılavuzu Aç/Kapat">
+                        <svg class="ico"><use href="#i-monitor"/></svg>
+                        <span id="monitor-toggle-text">Monitör Kılavuzu: Kapalı</span>
+                    </button>
+                </div>
+                <div class="chips-grid" id="layer-chips">
+                    <button type="button" class="chip" data-key="showSafeZones">Güvenli Alan</button>
+                    <button type="button" class="chip on" data-key="showMockUi">Sosyal Arayüz</button>
+                    <button type="button" class="chip" data-key="feed45" title="Instagram akışında 4:5 kırpma">Feed 4:5</button>
+                    <button type="button" class="chip" data-key="showSubtitleZone" title="Altyazı ve CTA güvenli sınırı">Altyazı Sınırı</button>
+                    <button type="button" class="chip" data-key="thirds" title="Üçte bir kuralı kılavuz çizgileri">Üçte Bir (3x3)</button>
+                    <button type="button" class="chip" data-key="center" title="Merkez artı işareti">Merkez Artı</button>
+                    <button type="button" class="chip" data-key="grid34" title="Instagram profil ızgarası 3:4 kırpma">Grid 3:4</button>
+                    <button type="button" class="chip" data-key="broadcast" title="Action %90 / Title %80">Broadcast</button>
+                </div>
+
+                <div class="slider-row">
+                    <label class="slider-label" for="input-opacity">Opaklık</label>
+                    <input type="range" id="input-opacity" min="20" max="100" step="5" value="100">
+                    <output id="opacity-val" for="input-opacity">100%</output>
+                </div>
+            </section>
+
+            <!-- Social Interface Settings (Profil & İçerik) -->
+            <details class="card fold" id="fold-profile" open>
+                <summary>
+                    <span>Sosyal Arayüz Ayarları</span>
+                    <svg class="ico chev"><use href="#i-chev"/></svg>
+                </summary>
+                <div class="fold-body">
+                    <div class="row">
+                        <select id="preset-selector" class="field" aria-label="Kayıtlı profil" title="Kayıtlı profil"></select>
+                        <button type="button" class="btn-icon sm" id="btn-save-preset" aria-label="Profili kaydet" title="Profili kaydet"><svg class="ico"><use href="#i-save"/></svg></button>
+                        <button type="button" class="btn-icon sm danger" id="btn-delete-preset" aria-label="Profili sil" title="Profili sil"><svg class="ico"><use href="#i-trash"/></svg></button>
+                    </div>
+                    <div class="row">
+                        <label class="avatar" for="avatar-input" title="Profil fotoğrafı yükle">
+                            <img id="avatar-img-preview" src="assets/sample_avatar.png" alt="Profil fotoğrafı">
+                            <svg class="ico"><use href="#i-upload"/></svg>
+                        </label>
+                        <input type="file" id="avatar-input" accept="image/*" hidden>
+                        <div class="field prefix"><span>@</span><input type="text" id="input-username" aria-label="Kullanıcı adı" placeholder="kullanıcı adı" value="alptugdag"></div>
+                    </div>
+                    <div class="chips-row">
+                        <button type="button" class="chip on" data-key="isVerified">Mavi Tik</button>
+                        <button type="button" class="chip on" data-key="showFollow" id="chip-follow">Takip Et</button>
+                    </div>
+                    <textarea id="input-caption" class="field" rows="2" aria-label="Video açıklaması" placeholder="Video açıklaması / caption">Bu eklenti @alptugdag tarafından yapılmıştır, destek için takip edebilirsin, kolay gelsin!</textarea>
+                    <input type="text" id="input-audio" class="field" aria-label="Ses veya müzik adı" placeholder="Ses / müzik adı" value="alptugdag · Orijinal Ses">
+                    <div class="metrics">
+                        <label><span id="metric-like-text">Beğeni</span><input type="text" id="input-likes" class="field" value="12.4K"></label>
+                        <label><span>Yorum</span><input type="text" id="input-comments" class="field" value="348"></label>
+                        <label id="metric-box-saves"><span>Kaydet</span><input type="text" id="input-saves" class="field" value="8.1K"></label>
+                        <label><span id="metric-share-text">Paylaş</span><input type="text" id="input-shares" class="field" value="1.2K"></label>
+                    </div>
+                </div>
+            </details>
+
+            <!-- Viral Hook & Retention Engine -->
+            <details class="card fold" id="fold-viral-hook" open>
+                <summary>
+                    <span>Viral Kurgu ve Kanca Motoru</span>
+                    <svg class="ico chev"><use href="#i-chev"/></svg>
+                </summary>
+                <div class="fold-body">
+                    <div class="field-group">
+                        <label class="field-label" for="select-hook-style">Kanca / Retention Stili</label>
+                        <select id="select-hook-style" class="field">
+                            <option value="punch_zoom" selected>Smooth Punch Zoom ve Sarsıntı</option>
+                            <option value="hormozi_title">Hormozi Pop Başlık ve Kanca</option>
+                            <option value="strobe_flash">Flaş Patlaması ve Hızlı İtiş</option>
+                            <option value="glitch_shock">Glitch ve Kinetik Darbe</option>
+                            <option value="jump_snap">Ritmik Sıçrama (Jump-Snap)</option>
+                            <option value="ai_smart">Otonom Kanca Seçimi (Akıllı Analiz)</option>
+                        </select>
+                    </div>
+                    <div class="field-group">
+                        <label class="field-label" for="input-hook-title">Özel Kanca Başlığı (Opsiyonel)</label>
+                        <input type="text" id="input-hook-title" class="field" placeholder="Örn: BUNU BİLMİYORDUNUZ!">
+                    </div>
+                    <button type="button" class="btn-primary" id="btn-apply-hook-main">
+                        <svg class="ico"><use href="#i-bolt"/></svg>
+                        <span>İlk 3sn Viral Hook Uygula</span>
+                    </button>
+                </div>
+            </details>
+
+            <!-- Pro Editor Tools -->
+            <section class="card section-card" aria-label="Kurgu Araçları">
+                <div class="section-title">Kurgu Araçları</div>
+                <div class="tools-grid">
+                    <button type="button" class="tool-btn" id="btn-viral-hook" title="Seçili stilde ilk 3 saniyeye kanca uygular">
+                        <svg class="ico"><use href="#i-bolt"/></svg>
+                        <span>Hızlı Hook</span>
+                    </button>
+                    <button type="button" class="tool-btn" id="btn-reframe" title="Orijinale dokunmadan 9:16 kopya oluşturur">
+                        <svg class="ico"><use href="#i-reframe"/></svg>
+                        <span>9:16 Kopya</span>
+                    </button>
+                    <button type="button" class="tool-btn" id="btn-markers" title="3. saniyeye HOOK ve süre limitine marker ekler">
+                        <svg class="ico"><use href="#i-marker"/></svg>
+                        <span>Hook &amp; Limit</span>
+                    </button>
+                    <button type="button" class="tool-btn" id="btn-insert-guides" title="Kılavuzu PNG klibi olarak timeline'a ekler">
+                        <svg class="ico"><use href="#i-grid"/></svg>
+                        <span>Kılavuz Klibi</span>
+                    </button>
+                    <button type="button" class="tool-btn" id="btn-insert-overlay" title="Arayüz simülasyonunu timeline'a ekler">
+                        <svg class="ico"><use href="#i-layers"/></svg>
+                        <span>Arayüz Klibi</span>
+                    </button>
+                    <button type="button" class="tool-btn" id="btn-export-png" title="Şeffaf kılavuz PNG'sini dışa aktarır">
+                        <svg class="ico"><use href="#i-download"/></svg>
+                        <span>PNG İndir</span>
+                    </button>
+                    <button type="button" class="tool-btn danger" id="btn-clean-timeline" title="Timeline'daki tüm Alptuguide katmanlarını temizler">
+                        <svg class="ico"><use href="#i-trash"/></svg>
+                        <span>Temizle</span>
+                    </button>
+                </div>
+            </section>
         </div>
-    </section>
+    </main>
 
     <footer class="foot">
         <span>© 2026 Alptuğ Dağ · Alptuguide™ v3.3</span>
     </footer>
 
-    <div id="toast" class="toast" role="status"></div>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
     <script src="js/CSInterface.js"></script>
     <script src="core/safezones.js"></script>
     <script src="core/layout.js"></script>
     <script src="core/renderer.js"></script>
     <script src="core/compguides.js"></script>
+    <script src="core/mercury_stream.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html>

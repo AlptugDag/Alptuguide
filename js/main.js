@@ -706,6 +706,26 @@
             seqChip.addEventListener('click', function () { refreshSequence(true); });
         }
 
+        var phoneScreen = $('phone-screen');
+        if (phoneScreen) {
+            phoneScreen.addEventListener('dragover', function (e) {
+                e.preventDefault();
+            });
+            phoneScreen.addEventListener('drop', function (e) {
+                e.preventDefault();
+                var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+                if (f && f.type && f.type.indexOf('image/') === 0) {
+                    var reader = new FileReader();
+                    reader.onload = function (ev) {
+                        var bgImg = $('mockup-bg-img');
+                        if (bgImg) bgImg.src = ev.target.result;
+                        toast('Önizleme görseli güncellendi: ' + f.name);
+                    };
+                    reader.readAsDataURL(f);
+                }
+            });
+        }
+
         var textBindings = {
             'input-username': function (v) { state.username = v.replace(/^@+/, '').trim() || 'kullanici'; },
             'input-caption': function (v) { state.caption = v; },

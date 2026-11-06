@@ -810,3 +810,90 @@ function applyViralRetentionHook(optionsJson) {
         return _json({ ok: false, error: e.toString() });
     }
 }
+
+// ---------------------------------------------------------------- Program Monitor Frame Capture
+
+function captureProgramMonitorFrame() {
+    try {
+        var host = getHostApp();
+        var tempFolder = new Folder(Folder.temp.fsName + "/alptuguide");
+        if (!tempFolder.exists) {
+            tempFolder.create();
+        }
+
+        var baseFileName = "live_frame_" + new Date().getTime();
+        var basePath = tempFolder.fsName + "/" + baseFileName;
+
+        if (host === "AEFT") {
+            var comp = _activeComp();
+            if (!comp) return _json({ ok: false, error: "Aktif Composition yok" });
+            var targetFile = new File(basePath + ".png");
+            try {
+                comp.saveFrameToPng(comp.time, targetFile);
+                if (targetFile.exists) {
+                    return _json({
+                        ok: true,
+                        host: "AEFT",
+                        path: targetFile.fsName,
+                        name: comp.name
+                    });
+                }
+            } catch (aeErr) {
+                return _json({ ok: false, host: "AEFT", error: aeErr.toString() });
+            }
+        } else {
+            // Premiere Pro (PPRO)
+            try { app.enableQE(); } catch (qeInitErr) {}
+            if (typeof qe === "undefined" || !qe || !qe.project) {
+                return _json({ ok: false, error: "QE DOM etkinleştirilemedi" });
+            }
+            var qeSeq = qe.project.getActiveSequence();
+            if (!qeSeq) {
+                return _json({ ok: false, error: "Aktif sekans bulunamadı" });
+            }
+
+            var timecode = (qeSeq.CTI && qeSeq.CTI.timecode) ? qeSeq.CTI.timecode : "00:00:00:00";
+            
+            // Export frame at CTI
+            var success = qeSeq.exportFramePNG(timecode, basePath);
+
+            // Check potential generated paths (basePath.png, basePath, or basePath.png.png)
+            var f1 = new File(basePath + ".png");
+            var f2 = new File(basePath);
+            var f3 = new File(basePath + ".png.png");
+            var finalFile = null;
+
+            if (f1.exists) finalFile = f1;
+            else if (f2.exists) finalFile = f2;
+            else if (f3.exists) finalFile = f3;
+
+            if (!finalFile) {
+                var pngFiles = tempFolder.getFiles("*.png");
+                if (pngFiles && pngFiles.length > 0) {
+                    pngFiles.sort(function(a, b) { return b.modified - a.modified; });
+                    finalFile = pngFiles[0];
+                }
+            }
+
+            if (finalFile && finalFile.exists) {
+                return _json({
+                    ok: true,
+                    host: "PPRO",
+                    path: finalFile.fsName,
+                    timecode: timecode,
+                    name: qeSeq.name
+                });
+            } else {
+                return _json({
+                    ok: false,
+                    error: "Program Monitörü karesi kaydedilemedi",
+                    successVal: success,
+                    timecode: timecode
+                });
+            }
+        }
+    } catch (e) {
+        return _json({ ok: false, error: e.toString() });
+    }
+    return _json({ ok: false, error: "Bilinmeyen hata" });
+}

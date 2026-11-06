@@ -430,9 +430,49 @@
         if (sizeChanged) scheduleRender(false);
     }
 
+    var _syncingMonitor = false;
+    function syncProgramMonitor(silent) {
+        if (_syncingMonitor) return;
+        _syncingMonitor = true;
+        callHost('captureProgramMonitorFrame', [], function (res) {
+            _syncingMonitor = false;
+            var d = {};
+            try { d = typeof res === 'string' ? JSON.parse(res) : res; } catch (e) {}
+            if (d && d.ok && d.path) {
+                var bgImg = $('mockup-bg-img');
+                if (bgImg) {
+                    if (typeof require !== 'undefined') {
+                        try {
+                            var fs = require('fs');
+                            if (fs.existsSync(d.path)) {
+                                var buf = fs.readFileSync(d.path);
+                                var b64 = buf.toString('base64');
+                                bgImg.src = 'data:image/png;base64,' + b64;
+                                try { fs.unlinkSync(d.path); } catch (uErr) {}
+                                if (!silent) toast('Program Monitörü eşitlendi (' + (d.timecode || 'Kare') + ')');
+                                return;
+                            }
+                        } catch (fsErr) {
+                            console.warn('fs error:', fsErr);
+                        }
+                    }
+                    bgImg.src = 'file://' + d.path + '?t=' + Date.now();
+                    if (!silent) toast('Program Monitörü eşitlendi (' + (d.timecode || 'Kare') + ')');
+                }
+            } else {
+                if (!silent) {
+                    toast((d && (d.error || d.message)) || 'Program Monitöründen kare alınamadı.', true);
+                }
+            }
+        });
+    }
+
     function refreshSequence(notify) {
         callHost('getSequenceDetails', [], function (res) {
             applySequence(res);
+            if (runtime.seq && runtime.seq.ok) {
+                syncProgramMonitor(true);
+            }
             if (notify) {
                 toast(
                     runtime.seq.ok
@@ -706,8 +746,20 @@
             seqChip.addEventListener('click', function () { refreshSequence(true); });
         }
 
+        var syncBtn = $('btn-sync-monitor');
+        if (syncBtn) {
+            syncBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                syncProgramMonitor(false);
+            });
+        }
+
         var phoneScreen = $('phone-screen');
         if (phoneScreen) {
+            phoneScreen.addEventListener('click', function (e) {
+                // Clicking on the phone screen syncs the program monitor
+                syncProgramMonitor(false);
+            });
             phoneScreen.addEventListener('dragover', function (e) {
                 e.preventDefault();
             });

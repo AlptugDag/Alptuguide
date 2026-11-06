@@ -55,30 +55,11 @@
 
     <main class="studio-layout">
         <!-- Left / Top Column: Native Smartphone Mockup Viewport -->
-        <section class="mockup-section studio-col-preview" aria-label="Canlı Telefon Mockup Önizleme">
+        <section class="mockup-section studio-col-preview" aria-label="Telefon Mockup Önizleme">
             <div class="mockup-header">
                 <div class="mockup-title-wrap">
                     <span class="mockup-live-dot" id="mockup-live-dot"></span>
-                    <strong>CANLI TELEFON MOCKUP</strong>
-                </div>
-                <div class="mockup-actions">
-                    <button type="button" class="btn-mockup-action" id="btn-mercury-stream" title="Adobe Mercury Transmit (Paylaşımlı Bellek / WebGL2) 60fps Canlı Akışı Aç/Kapat">
-                        <svg class="ico"><use href="#i-monitor"/></svg>
-                        <span id="mercury-stream-text">Mercury</span>
-                    </button>
-                    <button type="button" class="btn-mockup-action" id="btn-load-media" title="Bilgisayardan test videosu veya görsel yükle">
-                        <svg class="ico"><use href="#i-video"/></svg>
-                        <span>Medya</span>
-                    </button>
-                    <input type="file" id="media-file-input" accept="video/*,image/*" hidden>
-                    <button type="button" class="btn-mockup-action" id="btn-sync-timeline" title="NLE Timeline (CTI İmleci) ile anında eşitle">
-                        <svg class="ico"><use href="#i-refresh"/></svg>
-                        <span>Eşitle</span>
-                    </button>
-                    <button type="button" class="btn-mockup-action" id="btn-play-pause" title="Oynat / Duraklat (Boşluk tuşu)">
-                        <svg class="ico" id="play-pause-icon"><use href="#i-play"/></svg>
-                        <span id="play-pause-text">Oynat</span>
-                    </button>
+                    <strong>TELEFON ÖNİZLEMESİ</strong>
                 </div>
             </div>
 
@@ -90,29 +71,7 @@
                     </div>
 
                     <!-- Phone Screen -->
-                    <div class="phone-screen" id="phone-screen" title="Oynatmak / duraklatmak için tıklayın veya video sürükleyip bırakın">
-                        <!-- GPU-Accelerated Media Stage (Video + Fallback Still + Mercury Transmit WebGL2 Stream) -->
-                        <div class="phone-media-stage" id="phone-media-stage">
-                            <img id="mockup-preview-img" src="assets/cinematic_still.png" alt="Canlı Önizleme Karesi">
-                            <video id="mockup-video" muted playsinline loop preload="metadata"></video>
-                            <canvas id="mercury-stream-canvas" hidden></canvas>
-                        </div>
-
-                        <!-- Strobe / Glitch Flash Effect Layer -->
-                        <div class="hook-flash-overlay" id="hook-flash-overlay"></div>
-
-                        <!-- Kinetic Viral Hook Title Overlay -->
-                        <div class="hook-title-overlay" id="hook-title-overlay" aria-hidden="true">
-                            <span class="hook-title-badge" id="hook-title-badge">BUNU BİLMİYORDUNUZ!</span>
-                        </div>
-
-                        <!-- Fallback placeholder if media intentionally cleared -->
-                        <div class="mockup-placeholder" id="mockup-placeholder" hidden>
-                            <svg class="ico lg"><use href="#i-reframe"/></svg>
-                            <span>Video Bekleniyor</span>
-                            <small>Premiere'deki video doğrudan GPU ile oynatılır</small>
-                        </div>
-
+                    <div class="phone-screen" id="phone-screen">
                         <!-- Live Overlay Canvas: Safe Zones + Social Interface + Guides -->
                         <canvas id="mockup-canvas" data-testid="mockup-canvas"></canvas>
                     </div>
@@ -122,15 +81,9 @@
                 </div>
             </div>
 
-            <!-- Interactive Timeline Scrubber & Timecode Status -->
-            <div class="mockup-scrubber-wrap">
-                <input type="range" id="mockup-scrubber" class="mockup-scrubber" min="0" max="15" step="0.05" value="0" aria-label="Zaman çizelgesi konum çubuğu">
-                <div class="mockup-hook-zone" title="İlk 3 Saniye Viral Hook Bölgesi"></div>
-            </div>
-
             <div class="mockup-footer">
-                <span id="mockup-timecode">0:00 / 0:15</span>
-                <span id="mockup-file-label">cinematic_still.png · GPU Hazır</span>
+                <span id="mockup-aspect-label">1080×1920 · 9:16</span>
+                <span id="mockup-platform-label">Instagram Reels</span>
             </div>
         </section>
 
@@ -138,13 +91,7 @@
         <div class="studio-col-controls">
             <!-- Guide Overlay Layer Controls -->
             <section class="card section-card" aria-label="Kılavuz Katmanları">
-                <div class="section-header-row">
-                    <div class="section-title">Kılavuz Katmanları</div>
-                    <button type="button" class="btn-monitor-toggle" id="btn-monitor-toggle" title="NLE Program Monitörü / Yüzen Kılavuzu Aç/Kapat">
-                        <svg class="ico"><use href="#i-monitor"/></svg>
-                        <span id="monitor-toggle-text">Monitör Kılavuzu: Kapalı</span>
-                    </button>
-                </div>
+                <div class="section-title">Kılavuz Katmanları</div>
                 <div class="chips-grid" id="layer-chips">
                     <button type="button" class="chip" data-key="showSafeZones">Güvenli Alan</button>
                     <button type="button" class="chip on" data-key="showMockUi">Sosyal Arayüz</button>
@@ -198,50 +145,13 @@
                 </div>
             </details>
 
-            <!-- Viral Hook & Retention Engine -->
-            <details class="card fold" id="fold-viral-hook" open>
-                <summary>
-                    <span>Viral Kurgu ve Kanca Motoru</span>
-                    <svg class="ico chev"><use href="#i-chev"/></svg>
-                </summary>
-                <div class="fold-body">
-                    <div class="field-group">
-                        <label class="field-label" for="select-hook-style">Kanca / Retention Stili</label>
-                        <select id="select-hook-style" class="field">
-                            <option value="punch_zoom" selected>Smooth Punch Zoom ve Sarsıntı</option>
-                            <option value="hormozi_title">Hormozi Pop Başlık ve Kanca</option>
-                            <option value="strobe_flash">Flaş Patlaması ve Hızlı İtiş</option>
-                            <option value="glitch_shock">Glitch ve Kinetik Darbe</option>
-                            <option value="jump_snap">Ritmik Sıçrama (Jump-Snap)</option>
-                            <option value="ai_smart">Otonom Kanca Seçimi (Akıllı Analiz)</option>
-                        </select>
-                    </div>
-                    <div class="field-group">
-                        <label class="field-label" for="input-hook-title">Özel Kanca Başlığı (Opsiyonel)</label>
-                        <input type="text" id="input-hook-title" class="field" placeholder="Örn: BUNU BİLMİYORDUNUZ!">
-                    </div>
-                    <button type="button" class="btn-primary" id="btn-apply-hook-main">
-                        <svg class="ico"><use href="#i-bolt"/></svg>
-                        <span>İlk 3sn Viral Hook Uygula</span>
-                    </button>
-                </div>
-            </details>
-
             <!-- Pro Editor Tools -->
             <section class="card section-card" aria-label="Kurgu Araçları">
                 <div class="section-title">Kurgu Araçları</div>
                 <div class="tools-grid">
-                    <button type="button" class="tool-btn" id="btn-viral-hook" title="Seçili stilde ilk 3 saniyeye kanca uygular">
-                        <svg class="ico"><use href="#i-bolt"/></svg>
-                        <span>Hızlı Hook</span>
-                    </button>
-                    <button type="button" class="tool-btn" id="btn-reframe" title="Orijinale dokunmadan 9:16 kopya oluşturur">
+                    <button type="button" class="tool-btn" id="btn-reframe" title="Orijinale dokunmadan 9:16 kopya sekans oluşturur">
                         <svg class="ico"><use href="#i-reframe"/></svg>
                         <span>9:16 Kopya</span>
-                    </button>
-                    <button type="button" class="tool-btn" id="btn-markers" title="3. saniyeye HOOK ve süre limitine marker ekler">
-                        <svg class="ico"><use href="#i-marker"/></svg>
-                        <span>Hook &amp; Limit</span>
                     </button>
                     <button type="button" class="tool-btn" id="btn-insert-guides" title="Kılavuzu PNG klibi olarak timeline'a ekler">
                         <svg class="ico"><use href="#i-grid"/></svg>
@@ -275,7 +185,6 @@
     <script src="core/layout.js"></script>
     <script src="core/renderer.js"></script>
     <script src="core/compguides.js"></script>
-    <script src="core/mercury_stream.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html>

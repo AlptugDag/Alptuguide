@@ -3,10 +3,10 @@
  * Copyright (c) 2026 Alptuğ Dağ (@alptugdag). All rights reserved.
  *
  * Fully integrated directly into:
- *  - Adobe Premiere Pro (Program Monitor Native Guides + Mek Live Bridge)
+ *  - Adobe Premiere Pro (Native Sequence Inspection & Timeline Graphics Export)
  *  - Adobe After Effects (Comp Viewer Guide Layer)
  *  - DaVinci Resolve (Timeline Viewer & Native Liquid Glass Overlay)
- *  - Standalone / Web Studio Live Simulation Engine
+ *  - Standalone / Web Studio Vector Viewport Engine
  */
 (function () {
     'use strict';
@@ -80,23 +80,8 @@
         host: resolveBridge ? 'RESOLVE' : (csInterface ? 'PPRO' : (hasNative() ? 'RESOLVE' : 'WEB')),
         seq: { ok: true, width: 1080, height: 1920, fps: 60, duration: 15, name: 'Studio 9:16 Sekans' },
         avatarImage: null,
-        monitorOn: false,
         rev: Date.now() % 100000,
-        simPlaying: false,
-        simTime: 0,
-        simDuration: 15,
-        simLastTs: 0,
-        simRafId: 0,
-        usingVideoFile: false,
-        activeClipLabel: 'cinematic_still.png',
-        webLayerCount: 0,
-        hookAnim: {
-            active: false,
-            style: 'punch_zoom',
-            title: '',
-            startTime: 0,
-            duration: 3.0
-        }
+        webLayerCount: 0
     };
 
     var PLATFORM = {
@@ -104,15 +89,6 @@
         tiktok: { name: 'TikTok',          follow: 'Takip Et', like: 'Beğen',  share: 'Paylaş', saves: true, limit: 600 },
         shorts: { name: 'YouTube Shorts',  follow: 'Abone Ol', like: 'Beğen',  share: 'Paylaş', saves: false, limit: 180 },
         all:    { name: 'Ortak Güvenli',   follow: 'Takip Et', like: 'Beğen',  share: 'Paylaş', saves: true, limit: 180 }
-    };
-
-    var HOOK_STYLE_LABELS = {
-        punch_zoom: 'Smooth Punch Zoom ve Sarsıntı',
-        hormozi_title: 'Hormozi Pop Başlık ve Kanca',
-        strobe_flash: 'Flaş Patlaması ve Hızlı İtiş',
-        glitch_shock: 'Glitch ve Kinetik Darbe',
-        jump_snap: 'Ritmik Sıçrama (Jump-Snap)',
-        ai_smart: 'Otonom Kanca Seçimi'
     };
 
     var STORAGE_KEY = 'alptuguide_v3_state';
@@ -129,36 +105,7 @@
                 width: runtime.seq.width || 1080,
                 height: runtime.seq.height || 1920,
                 fps: runtime.seq.fps || 60,
-                duration: runtime.simDuration || 15
-            });
-        }
-        if (cmd === 'getActiveFootageInfo') {
-            return JSON.stringify({
-                ok: true,
-                mediaPath: '',
-                previewAsset: 'assets/cinematic_still.png',
-                playerPos: runtime.simTime || 0,
-                sourceTime: runtime.simTime || 0,
-                clipName: runtime.activeClipLabel || 'cinematic_still.png',
-                width: runtime.seq.width || 1080,
-                height: runtime.seq.height || 1920,
-                duration: runtime.simDuration || 15,
-                seqName: runtime.seq.name || 'Studio 9:16 Sekans'
-            });
-        }
-        if (cmd === 'applyViralRetentionHook') {
-            var opt = (args && args[0]) || {};
-            var st = opt.style || 'punch_zoom';
-            var lbl = HOOK_STYLE_LABELS[st] || st;
-            return JSON.stringify({
-                ok: true,
-                sequence: runtime.seq.name || 'Studio 9:16 Sekans',
-                style: st,
-                style_label: lbl,
-                motion_applied: true,
-                hook_duration: 3.0,
-                hook_title: opt.title || (st === 'hormozi_title' ? 'DİKKATLE İZLEYİN!' : 'BUNU BİLMİYORDUNUZ!'),
-                message: 'İlk 3 saniyeye (00:00 - 03:00) ' + lbl + ' uygulandı.'
+                duration: runtime.seq.duration || 15
             });
         }
         if (cmd === 'autoReframeSequence' || cmd === 'createVerticalVersion') {
@@ -166,11 +113,6 @@
             runtime.seq.height = 1920;
             runtime.seq.name = 'Studio Sekans · 9x16';
             return 'OK:' + runtime.seq.name;
-        }
-        if (cmd === 'addPlatformMarkers') {
-            var lim = Number(args && args[0]) || 180;
-            var count = (runtime.simDuration > lim) ? 2 : 1;
-            return 'OK:' + count;
         }
         if (cmd === 'insertClipPermanent') {
             runtime.webLayerCount++;
@@ -180,9 +122,6 @@
             var removed = runtime.webLayerCount;
             runtime.webLayerCount = 0;
             return 'OK:' + removed;
-        }
-        if (cmd === 'setMonitorGuide' || cmd === 'setPremiereNativeGuides') {
-            return 'OK';
         }
         return 'OK';
     }
@@ -392,117 +331,17 @@
         }
         if (changed !== false) {
             schedulePersist();
-            scheduleMonitorSync();
         }
     }
 
-    // ------------------------------------------------------------------ Host Monitor Guide Sync
-    var monitorSyncTimer = 0;
-    function updateMonitorButton() {
-        var btn = $('btn-monitor-toggle');
-        var txt = $('monitor-toggle-text');
+    // ------------------------------------------------------------------ Host Badge
+    function updateHostBadge() {
         var badge = $('host-badge');
         if (badge) {
             badge.textContent = runtime.host === 'PPRO' ? 'PREMIERE'
                 : runtime.host === 'AEFT' ? 'AFTER EFFECTS'
                 : runtime.host === 'RESOLVE' ? 'RESOLVE' : 'STUDIO';
         }
-        if (!btn || !txt) return;
-        btn.classList.toggle('on', Boolean(runtime.monitorOn));
-        txt.textContent = runtime.monitorOn ? 'Monitör Kılavuzu: Açık' : 'Monitör Kılavuzu: Kapalı';
-    }
-
-    function scheduleMonitorSync() {
-        if (!runtime.monitorOn && !hasNative()) return;
-        clearTimeout(monitorSyncTimer);
-        monitorSyncTimer = setTimeout(function () {
-            syncHostMonitor(false);
-        }, 180);
-    }
-
-    function syncHostMonitor(notify) {
-        runtime.rev = (runtime.rev + 1) % 1000000;
-        if (window.AlptuguideMercuryStream && typeof AlptuguideMercuryStream.publishOverlayState === 'function') {
-            AlptuguideMercuryStream.publishOverlayState({
-                visible: Boolean(runtime.monitorOn),
-                host: runtime.host,
-                platform: state.platform,
-                showSafeZones: Boolean(state.showSafeZones),
-                showMockUi: Boolean(state.showMockUi),
-                feed45: Boolean(state.feed45),
-                grid34: Boolean(state.grid34),
-                thirds: Boolean(state.thirds),
-                center: Boolean(state.center),
-                broadcast: Boolean(state.broadcast),
-                opacity: Number(state.overlayOpacity) || 1,
-                aspect: (runtime.seq.width && runtime.seq.height) ? (runtime.seq.width / runtime.seq.height) : (9 / 16)
-            });
-        }
-        if (hasNative()) {
-            var b64 = dataUrlToBase64(overlayPng('current', 1920));
-            sendNative({
-                action: 'publishOverlay',
-                pngBase64: b64,
-                state: {
-                    visible: runtime.monitorOn,
-                    host: runtime.host,
-                    platform: state.platform,
-                    rev: runtime.rev
-                }
-            }, function () {
-                if (notify) toast(runtime.monitorOn ? 'Yüzen monitör kılavuzu aktif.' : 'Yüzen monitör kılavuzu gizlendi.');
-            });
-            return;
-        }
-
-        if (csInterface) {
-            if (runtime.host === 'AEFT') {
-                if (ensureShareDir()) {
-                    var p = path.join(SHARE_DIR, 'Alptuguide_CompGuide.png');
-                    if (runtime.monitorOn) writePng(p, overlayPng('current', Math.max(runtime.seq.width || 1080, runtime.seq.height || 1920)));
-                    callHost('setCompGuide', [p, runtime.monitorOn], function (res) {
-                        if (notify) {
-                            if (res === 'OK') toast(runtime.monitorOn ? 'After Effects Guide Layer aktif (render dışı).' : 'Guide Layer kaldırıldı.');
-                            else toast(res || 'Guide Layer güncellenemedi.', true);
-                        }
-                    });
-                }
-            } else {
-                var cfgJson = JSON.stringify({
-                    showSafeZones: state.showSafeZones,
-                    feed45: state.feed45,
-                    thirds: state.thirds,
-                    center: state.center
-                });
-                callHost('setPremiereNativeGuides', [runtime.monitorOn, cfgJson], function (res) {
-                    if (notify) {
-                        if (String(res).indexOf('OK') === 0) toast(runtime.monitorOn ? 'Premiere Program Monitör kılavuzları aktif.' : 'Program Monitör kılavuzları kapatıldı.');
-                        else toast(res || 'Kılavuz güncellenemedi.', true);
-                    }
-                });
-            }
-            return;
-        }
-
-        if (notify) {
-            if (runtime.monitorOn && !state.showSafeZones) {
-                state.showSafeZones = true;
-                syncChips();
-                scheduleRender(false);
-            }
-            toast(runtime.monitorOn ? 'Canlı Monitör Kılavuzu aktif.' : 'Canlı Monitör Kılavuzu kapatıldı.');
-        }
-    }
-
-    function toggleMonitorGuide() {
-        runtime.monitorOn = !runtime.monitorOn;
-        if (runtime.monitorOn && !state.showSafeZones && runtime.host === 'WEB') {
-            state.showSafeZones = true;
-            syncChips();
-            scheduleRender(false);
-        }
-        updateMonitorButton();
-        syncHostMonitor(true);
     }
 
     // ------------------------------------------------------------------ Persistence
@@ -526,313 +365,6 @@
             });
             if (!PLATFORM[state.platform]) state.platform = 'reels';
         } catch (e) {}
-    }
-
-    // ------------------------------------------------------------------ Live Smartphone Mockup & 60fps Viral Hook Engine
-    function computeViralHookTransform(style, tSec) {
-        // Matches the exact keyframes in jsx/hostscript.jsx for the first 3.0 seconds
-        var scale = 1.0, tx = 0, ty = 0, flashOpacity = 0, showBadge = false;
-        if (tSec < 0 || tSec > 3.0) {
-            return { scale: 1.0, tx: 0, ty: 0, flashOpacity: 0, showBadge: false };
-        }
-
-        if (style === 'jump_snap') {
-            scale = tSec < 1.0 ? 1.04 : (tSec < 2.0 ? 1.11 : 1.18);
-            var jumpPhase = tSec % 1.0;
-            if (jumpPhase < 0.12) {
-                var decay = 1 - (jumpPhase / 0.12);
-                tx = Math.sin(jumpPhase * 90) * 6 * decay;
-                ty = Math.cos(jumpPhase * 90) * -4 * decay;
-            }
-            showBadge = tSec < 2.2;
-        } else if (style === 'strobe_flash') {
-            var pFlash = Math.min(1, tSec / 2.5);
-            scale = 1.14 + 0.06 * pFlash;
-            if (tSec < 0.28) {
-                flashOpacity = Math.abs(Math.sin(tSec * 45)) * (1 - tSec / 0.28) * 0.78;
-            }
-            if (tSec < 0.45) {
-                var d2 = 1 - (tSec / 0.45);
-                tx = Math.sin(tSec * 65) * 8 * d2;
-                ty = Math.cos(tSec * 55) * -6 * d2;
-            }
-            showBadge = tSec < 2.4;
-        } else if (style === 'glitch_shock') {
-            scale = tSec < 0.4 ? (1.05 + (tSec / 0.4) * 0.11) : (1.16 + Math.min(1, (tSec - 0.4) / 2.0) * 0.04);
-            if (tSec < 0.48) {
-                var dg = 1 - (tSec / 0.48);
-                tx = Math.sin(tSec * 120) * 14 * dg;
-                ty = Math.cos(tSec * 95) * -9 * dg;
-                flashOpacity = (Math.sin(tSec * 80) > 0.6) ? 0.35 * dg : 0;
-            }
-            showBadge = tSec < 2.5;
-        } else {
-            // punch_zoom, hormozi_title, ai_smart
-            var ease = 1 - Math.pow(1 - Math.min(1, tSec / 2.4), 3);
-            scale = 1.0 + 0.20 * ease;
-            if (tSec < 0.5) {
-                var dp = 1 - (tSec / 0.5);
-                tx = Math.sin(tSec * 55) * 9 * dp;
-                ty = Math.cos(tSec * 48) * -6 * dp;
-            }
-            showBadge = Boolean(runtime.hookAnim.title) && tSec < 2.6;
-        }
-
-        return {
-            scale: scale,
-            tx: tx,
-            ty: ty,
-            flashOpacity: flashOpacity,
-            showBadge: showBadge
-        };
-    }
-
-    function applyMediaStageVisuals(curTime) {
-        var stage = $('phone-media-stage');
-        var flashEl = $('hook-flash-overlay');
-        var titleOverlay = $('hook-title-overlay');
-        var titleBadge = $('hook-title-badge');
-        if (!stage) return;
-
-        var scale = 1.0, tx = 0, ty = 0, flashOpacity = 0, showBadge = false;
-
-        if (runtime.hookAnim.active && curTime <= 3.0) {
-            var h = computeViralHookTransform(runtime.hookAnim.style, curTime);
-            scale = h.scale;
-            tx = h.tx;
-            ty = h.ty;
-            flashOpacity = h.flashOpacity;
-            showBadge = h.showBadge;
-        } else if (!runtime.usingVideoFile && runtime.simPlaying) {
-            // Subtle breathing handheld camera motion when playing still preview
-            scale = 1.03 + Math.sin(curTime * 1.1) * 0.025;
-            tx = Math.sin(curTime * 0.85) * 2.5;
-            ty = Math.cos(curTime * 0.7) * 2.0;
-        }
-
-        stage.style.transform = 'translate3d(' + tx.toFixed(2) + 'px, ' + ty.toFixed(2) + 'px, 0) scale(' + scale.toFixed(4) + ')';
-        if (flashEl) {
-            flashEl.style.opacity = flashOpacity > 0.01 ? flashOpacity.toFixed(2) : '0';
-        }
-        if (titleOverlay) {
-            if (showBadge && runtime.hookAnim.title) {
-                if (titleBadge && titleBadge.textContent !== runtime.hookAnim.title) {
-                    titleBadge.textContent = runtime.hookAnim.title;
-                }
-                titleOverlay.classList.add('visible');
-            } else {
-                titleOverlay.classList.remove('visible');
-            }
-        }
-    }
-
-    function updatePlaybackUI(isPlaying) {
-        var btn = $('btn-play-pause');
-        var ico = $('play-pause-icon');
-        var txt = $('play-pause-text');
-        var dot = $('mockup-live-dot');
-        if (btn) btn.classList.toggle('active', Boolean(isPlaying));
-        if (dot) dot.classList.toggle('playing', Boolean(isPlaying));
-        if (txt) txt.textContent = isPlaying ? 'Duraklat' : 'Oynat';
-        if (ico) {
-            var use = ico.querySelector('use');
-            if (use) use.setAttribute('href', isPlaying ? '#i-pause' : '#i-play');
-        }
-    }
-
-    function simulationTick(now) {
-        if (!runtime.simPlaying) {
-            runtime.simRafId = 0;
-            return;
-        }
-        if (!runtime.simLastTs) runtime.simLastTs = now;
-        var dt = Math.min(0.1, Math.max(0, (now - runtime.simLastTs) / 1000));
-        runtime.simLastTs = now;
-
-        if (runtime.usingVideoFile) {
-            var video = $('mockup-video');
-            if (video && !video.paused) {
-                runtime.simTime = video.currentTime || 0;
-                runtime.simDuration = video.duration || runtime.seq.duration || 15;
-            }
-        } else {
-            var dur = runtime.simDuration || 15;
-            runtime.simTime = (runtime.simTime + dt) % dur;
-        }
-
-        if (runtime.hookAnim.active && runtime.simTime > 3.05) {
-            runtime.hookAnim.active = false;
-        }
-
-        applyMediaStageVisuals(runtime.simTime);
-        updateTimecodeDisplay(runtime.simTime, runtime.simDuration);
-        runtime.simRafId = requestAnimationFrame(simulationTick);
-    }
-
-    function startPlayback() {
-        var video = $('mockup-video');
-        runtime.simPlaying = true;
-        runtime.simLastTs = performance.now();
-        updatePlaybackUI(true);
-        if (runtime.usingVideoFile && video) {
-            video.play().catch(function () {});
-        }
-        if (!runtime.simRafId) {
-            runtime.simRafId = requestAnimationFrame(simulationTick);
-        }
-    }
-
-    function pausePlayback() {
-        var video = $('mockup-video');
-        runtime.simPlaying = false;
-        runtime.simLastTs = 0;
-        if (runtime.simRafId) {
-            cancelAnimationFrame(runtime.simRafId);
-            runtime.simRafId = 0;
-        }
-        if (runtime.usingVideoFile && video && !video.paused) {
-            video.pause();
-        }
-        updatePlaybackUI(false);
-        applyMediaStageVisuals(runtime.simTime);
-    }
-
-    function togglePlayback() {
-        if (runtime.simPlaying) {
-            pausePlayback();
-        } else {
-            startPlayback();
-        }
-    }
-
-    function triggerViralHookPreview(style, customTitle) {
-        var resolvedTitle = customTitle || (style === 'hormozi_title' ? 'DİKKATLE İZLEYİN!' : (style === 'ai_smart' ? 'BU DETAYA DİKKAT!' : ''));
-        runtime.hookAnim = {
-            active: true,
-            style: style || 'punch_zoom',
-            title: resolvedTitle,
-            startTime: performance.now(),
-            duration: 3.0
-        };
-        runtime.simTime = 0;
-        var video = $('mockup-video');
-        if (runtime.usingVideoFile && video) {
-            try { video.currentTime = 0; } catch (e) {}
-        }
-        startPlayback();
-    }
-
-    function loadLocalMediaFile(file) {
-        if (!file) return;
-        var video = $('mockup-video');
-        var previewImg = $('mockup-preview-img');
-        var placeholder = $('mockup-placeholder');
-        var fileLabel = $('mockup-file-label');
-        var url = URL.createObjectURL(file);
-        runtime.activeClipLabel = file.name;
-
-        if (file.type && file.type.indexOf('video/') === 0) {
-            runtime.usingVideoFile = true;
-            if (previewImg) previewImg.style.display = 'none';
-            if (placeholder) placeholder.hidden = true;
-            if (video) {
-                video.style.display = 'block';
-                video.src = url;
-                video.onloadedmetadata = function () {
-                    runtime.simDuration = Math.max(1, video.duration || 15);
-                    runtime.simTime = 0;
-                    var scrub = $('mockup-scrubber');
-                    if (scrub) scrub.max = String(runtime.simDuration);
-                    updateTimecodeDisplay(0, runtime.simDuration);
-                    startPlayback();
-                };
-                video.load();
-            }
-            if (fileLabel) fileLabel.textContent = file.name + ' · GPU Video';
-            toast('Video yüklendi: ' + file.name);
-        } else if (file.type && file.type.indexOf('image/') === 0) {
-            runtime.usingVideoFile = false;
-            if (video) {
-                video.pause();
-                video.style.display = 'none';
-            }
-            if (placeholder) placeholder.hidden = true;
-            if (previewImg) {
-                previewImg.style.display = 'block';
-                previewImg.src = url;
-            }
-            runtime.simTime = 0;
-            updateTimecodeDisplay(0, runtime.simDuration);
-            if (fileLabel) fileLabel.textContent = file.name + ' · Canlı Kare';
-            toast('Görsel yüklendi: ' + file.name);
-        }
-    }
-
-    function syncMockupFootage(notify) {
-        callHost('getActiveFootageInfo', [], function (res) {
-            var d = null;
-            try { d = typeof res === 'string' ? JSON.parse(res) : res; } catch (e) {}
-            if (!d || !d.ok) {
-                if (notify) toast('Sekans veya aktif medya bulunamadı.', true);
-                return;
-            }
-
-            var video = $('mockup-video');
-            var previewImg = $('mockup-preview-img');
-            var placeholder = $('mockup-placeholder');
-            var fileLabel = $('mockup-file-label');
-
-            if (d.mediaPath) {
-                var fileUrl = d.mediaPath.indexOf('file://') === 0
-                    ? d.mediaPath
-                    : 'file://' + encodeURI(d.mediaPath).replace(/#/g, '%23');
-                runtime.usingVideoFile = true;
-                if (video) {
-                    if (video.getAttribute('data-raw-src') !== d.mediaPath) {
-                        video.setAttribute('data-raw-src', d.mediaPath);
-                        video.src = fileUrl;
-                        video.load();
-                    }
-                    if (typeof d.sourceTime === 'number' && !isNaN(d.sourceTime)) {
-                        try { video.currentTime = d.sourceTime; } catch (tErr) {}
-                    }
-                    video.style.display = 'block';
-                }
-                if (previewImg) previewImg.style.display = 'none';
-                if (placeholder) placeholder.hidden = true;
-                var clipLabel = d.mediaPath.split('/').pop() || d.clipName || 'Klip';
-                runtime.activeClipLabel = clipLabel;
-                runtime.simTime = d.playerPos || 0;
-                runtime.simDuration = d.duration || (video && video.duration) || 15;
-                if (fileLabel) fileLabel.textContent = clipLabel + ' · GPU Hazır';
-                updateTimecodeDisplay(runtime.simTime, runtime.simDuration);
-                if (notify) toast('Timeline ile eşitlendi: ' + clipLabel + ' @ ' + fmtDur(runtime.simTime));
-            } else {
-                if (!runtime.usingVideoFile && previewImg) {
-                    previewImg.style.display = 'block';
-                }
-                if (placeholder) placeholder.hidden = true;
-                runtime.simDuration = d.duration || runtime.simDuration || 15;
-                if (fileLabel) fileLabel.textContent = (d.clipName || d.seqName || 'cinematic_still.png') + ' · GPU Hazır';
-                updateTimecodeDisplay(runtime.simTime, runtime.simDuration);
-                if (notify) toast('Timeline eşitlendi: ' + (d.seqName || 'Studio 9:16 Sekans'));
-            }
-            scheduleRender(false);
-        });
-    }
-
-    function updateTimecodeDisplay(cur, total) {
-        var tc = $('mockup-timecode');
-        var scrub = $('mockup-scrubber');
-        var safeTotal = Math.max(1, total || 15);
-        var safeCur = Math.max(0, Math.min(safeTotal, cur || 0));
-        if (tc) {
-            tc.textContent = fmtDur(safeCur) + ' / ' + fmtDur(safeTotal);
-        }
-        if (scrub) {
-            if (Number(scrub.max) !== safeTotal) scrub.max = String(safeTotal);
-            scrub.value = String(safeCur.toFixed(2));
-        }
     }
 
     // ------------------------------------------------------------------ Sequence Info
@@ -870,7 +402,7 @@
         if (!d) return;
         if (d.host && d.host !== runtime.host) {
             runtime.host = d.host;
-            updateMonitorButton();
+            updateHostBadge();
             updateToolAvailability();
         }
         var prev = runtime.seq;
@@ -883,13 +415,19 @@
             name: d.name || 'Studio 9:16 Sekans',
             message: d.message || ''
         };
-        if (runtime.seq.duration > 0 && !runtime.usingVideoFile) {
-            runtime.simDuration = runtime.seq.duration;
-        }
         updateSeqChip();
+
+        var aspectLabel = $('mockup-aspect-label');
+        if (aspectLabel) {
+            var aspect = runtime.seq.height ? (runtime.seq.width / runtime.seq.height) : (9 / 16);
+            var aspName = Math.abs(aspect - (9 / 16)) < 0.02 ? '9:16'
+                : Math.abs(aspect - (16 / 9)) < 0.02 ? '16:9'
+                : Math.abs(aspect - 1.0) < 0.02 ? '1:1' : '';
+            aspectLabel.textContent = runtime.seq.width + '×' + runtime.seq.height + (aspName ? (' · ' + aspName) : '');
+        }
+
         var sizeChanged = prev.width !== runtime.seq.width || prev.height !== runtime.seq.height;
         if (sizeChanged) scheduleRender(false);
-        syncMockupFootage(false);
     }
 
     function refreshSequence(notify) {
@@ -922,6 +460,8 @@
         if (sText && meta) sText.textContent = meta.share;
         var bSaves = $('metric-box-saves');
         if (bSaves && meta) bSaves.style.display = meta.saves ? '' : 'none';
+        var pLabel = $('mockup-platform-label');
+        if (pLabel && meta) pLabel.textContent = meta.name;
         updateSeqChip();
     }
 
@@ -950,7 +490,7 @@
         loadAvatar(state.avatarDataUrl || 'assets/sample_avatar.png');
         renderPresets();
         updatePlatformUI();
-        updateMonitorButton();
+        updateHostBadge();
     }
 
     function updateToolAvailability() {
@@ -1071,17 +611,10 @@
     }
 
     function cleanTimeline() {
-        if (runtime.monitorOn) {
-            runtime.monitorOn = false;
-            updateMonitorButton();
-        }
-        runtime.hookAnim.active = false;
-        applyMediaStageVisuals(runtime.simTime);
-
         callHost('cleanAllPreviewClips', [], function (res) {
             if (res && String(res).indexOf('OK:') === 0) {
                 var count = Number(res.split(':')[1]) || 0;
-                toast(count > 0 ? ('Temizlendi: ' + count + ' Alptuguide katmanı.') : 'Tüm kılavuz ve önizleme katmanları temizlendi.');
+                toast(count > 0 ? ('Temizlendi: ' + count + ' Alptuguide katmanı.') : 'Tüm kılavuz katmanları temizlendi.');
             } else {
                 toast('Temizlenecek kılavuz katmanı yok.');
             }
@@ -1123,19 +656,7 @@
     }
 
     function handleMekCommand(msg) {
-        if (msg.action === 'apply_viral_hook' || msg.action === 'viral_hook') {
-            var p = msg.params || {};
-            triggerViralHookPreview(p.style || 'punch_zoom', p.title || '');
-            callHost('applyViralRetentionHook', [p], function (res) {
-                var d = {};
-                try { d = typeof res === 'string' ? JSON.parse(res) : res; } catch (e) {}
-                toast(d.message || 'Viral hook uygulandı.');
-                if (mekClient && !mekClient.destroyed) {
-                    var rep = JSON.stringify({ type: 'response', req_id: msg.req_id, data: d }) + '\n';
-                    mekClient.write(rep);
-                }
-            });
-        } else if (msg.action === 'analyze_timeline') {
+        if (msg.action === 'analyze_timeline') {
             callHost('getSequenceDetails', [], function (res) {
                 var d = {};
                 try { d = typeof res === 'string' ? JSON.parse(res) : res; } catch (e) {}
@@ -1169,11 +690,6 @@
             scheduleRender();
         });
 
-        var monBtn = $('btn-monitor-toggle');
-        if (monBtn) {
-            monBtn.addEventListener('click', toggleMonitorGuide);
-        }
-
         var opInput = $('input-opacity');
         if (opInput) {
             opInput.addEventListener('input', function () {
@@ -1184,84 +700,6 @@
                 scheduleRender();
             });
         }
-
-        var loadMediaBtn = $('btn-load-media');
-        var mediaFileInput = $('media-file-input');
-        if (loadMediaBtn && mediaFileInput) {
-            loadMediaBtn.addEventListener('click', function () {
-                mediaFileInput.click();
-            });
-            mediaFileInput.addEventListener('change', function () {
-                var f = this.files && this.files[0];
-                if (f) loadLocalMediaFile(f);
-            });
-        }
-
-        var syncBtn = $('btn-sync-timeline');
-        if (syncBtn) {
-            syncBtn.addEventListener('click', function () { syncMockupFootage(true); });
-        }
-
-        var playPauseBtn = $('btn-play-pause');
-        if (playPauseBtn) {
-            playPauseBtn.addEventListener('click', togglePlayback);
-        }
-
-        var phoneScreen = $('phone-screen');
-        if (phoneScreen) {
-            phoneScreen.addEventListener('click', togglePlayback);
-            phoneScreen.addEventListener('dragover', function (e) {
-                e.preventDefault();
-                phoneScreen.classList.add('drag-over');
-            });
-            phoneScreen.addEventListener('dragleave', function () {
-                phoneScreen.classList.remove('drag-over');
-            });
-            phoneScreen.addEventListener('drop', function (e) {
-                e.preventDefault();
-                phoneScreen.classList.remove('drag-over');
-                var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-                if (f) loadLocalMediaFile(f);
-            });
-        }
-
-        var scrubber = $('mockup-scrubber');
-        if (scrubber) {
-            scrubber.addEventListener('input', function () {
-                var t = Number(this.value) || 0;
-                runtime.simTime = t;
-                var video = $('mockup-video');
-                if (runtime.usingVideoFile && video) {
-                    try { video.currentTime = t; } catch (e) {}
-                }
-                applyMediaStageVisuals(t);
-                updateTimecodeDisplay(t, runtime.simDuration);
-            });
-        }
-
-        var videoEl = $('mockup-video');
-        if (videoEl) {
-            videoEl.addEventListener('timeupdate', function () {
-                if (runtime.usingVideoFile) {
-                    runtime.simTime = videoEl.currentTime || 0;
-                    runtime.simDuration = videoEl.duration || runtime.seq.duration || 15;
-                    updateTimecodeDisplay(runtime.simTime, runtime.simDuration);
-                }
-            });
-            videoEl.addEventListener('ended', function () {
-                pausePlayback();
-            });
-        }
-
-        window.addEventListener('keydown', function (e) {
-            if (e.code === 'Space') {
-                var tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
-                if (tag !== 'input' && tag !== 'textarea' && tag !== 'select' && tag !== 'button') {
-                    e.preventDefault();
-                    togglePlayback();
-                }
-            }
-        });
 
         var seqChip = $('seq-chip');
         if (seqChip) {
@@ -1352,33 +790,6 @@
             });
         }
 
-        function executeViralHook() {
-            var styleEl = $('select-hook-style');
-            var style = styleEl ? styleEl.value : 'punch_zoom';
-            var titleEl = $('input-hook-title');
-            var customTitle = titleEl ? titleEl.value.trim() : '';
-
-            triggerViralHookPreview(style, customTitle);
-
-            var params = { style: style, title: customTitle };
-            callHost('applyViralRetentionHook', [params], function (res) {
-                var d = {};
-                try { d = typeof res === 'string' ? JSON.parse(res) : res; } catch (e) {}
-                if (d && d.ok) toast(d.message || 'İlk 3sn Viral Hook uygulandı.');
-                else toast((d && (d.message || d.error)) || 'Hook uygulanamadı.', true);
-            });
-        }
-
-        var applyHookMainBtn = $('btn-apply-hook-main');
-        if (applyHookMainBtn) {
-            applyHookMainBtn.addEventListener('click', executeViralHook);
-        }
-
-        var vHookBtn = $('btn-viral-hook');
-        if (vHookBtn) {
-            vHookBtn.addEventListener('click', executeViralHook);
-        }
-
         var refBtn = $('btn-reframe');
         if (refBtn) {
             refBtn.addEventListener('click', function () {
@@ -1389,21 +800,6 @@
                         refreshSequence(false);
                     } else {
                         toast(res || 'Reframe yapılamadı.', true);
-                    }
-                });
-            });
-        }
-
-        var markBtn = $('btn-markers');
-        if (markBtn) {
-            markBtn.addEventListener('click', function () {
-                var meta = PLATFORM[state.platform] || PLATFORM.reels;
-                callHost('addPlatformMarkers', [meta.limit || 180, meta.name], function (res) {
-                    if (res && String(res).indexOf('OK') === 0) {
-                        var added = String(res).split(':')[1] || '1';
-                        toast('3sn HOOK ve süre limiti marker\'ları eklendi (' + added + ' adet).');
-                    } else {
-                        toast(res || 'Marker eklenemedi.', true);
                     }
                 });
             });
@@ -1464,7 +860,6 @@
         updateToolAvailability();
         bindEvents();
         renderMockup();
-        updateTimecodeDisplay(runtime.simTime, runtime.simDuration);
         loadHostScript(function () {
             refreshSequence(false);
         });

@@ -4,9 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Alptuguide Studio</title>
-    <meta name="description" content="Instagram Reels, TikTok ve YouTube Shorts dikey video kurguları için 1:1 doğrulanmış güvenli alan kılavuzları, canlı telefon mockup önizlemesi ve NLE kurgu araçları stüdyosu.">
+    <meta name="description" content="Instagram Reels, TikTok ve YouTube Shorts dikey video kurguları için 1:1 doğrulanmış güvenli alan kılavuzları, canlı telefon mockup önizlemesi, Gemini destekli ilk 3 saniye viral hook ve kinetik tipografi stüdyosu.">
     <meta property="og:title" content="Alptuguide Studio">
-    <meta property="og:description" content="Instagram Reels, TikTok ve YouTube Shorts dikey video kurguları için 1:1 doğrulanmış güvenli alan kılavuzları, canlı telefon mockup önizlemesi ve NLE kurgu araçları stüdyosu.">
+    <meta property="og:description" content="Instagram Reels, TikTok ve YouTube Shorts dikey video kurguları için 1:1 doğrulanmış güvenli alan kılavuzları, canlı telefon mockup önizlemesi, Gemini destekli ilk 3 saniye viral hook ve kinetik tipografi stüdyosu.">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -29,6 +29,9 @@
             <symbol id="i-bolt" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></symbol>
             <symbol id="i-video" viewBox="0 0 24 24"><rect x="2" y="5" width="14" height="14" rx="2"/><polygon points="22 7 16 12 22 17 22 7"/></symbol>
             <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
+            <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/></symbol>
+            <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+            <symbol id="i-repeat" viewBox="0 0 24 24"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></symbol>
         </defs>
     </svg>
 
@@ -40,8 +43,8 @@
             <span class="brand-badge" id="host-badge">STUDIO</span>
         </div>
         <button type="button" class="seq-chip" id="seq-chip" title="Sekans bilgisi — yenilemek için tıklayın">
-            <span class="seq-dot" id="seq-dot"></span>
-            <span id="seq-text">1080×1920 · 60 fps · 9:16</span>
+            <span class="seq-dot ok" id="seq-dot"></span>
+            <span id="seq-text">1080×1920 · 60 fps · 9:16 · 0:15</span>
         </button>
     </header>
 
@@ -59,9 +62,27 @@
             <div class="mockup-header">
                 <div class="mockup-title-wrap">
                     <span class="mockup-live-dot" id="mockup-live-dot"></span>
-                    <strong>TELEFON ÖNİZLEMESİ</strong>
+                    <strong>CANLI TELEFON MOCKUP</strong>
                 </div>
-                <button class="btn-sync-monitor" id="btn-sync-monitor" title="Premiere Pro Program Monitörünü telefona aktar (Tıkla)">Monitörü Eşitle</button>
+                <div class="mockup-actions-bar">
+                    <button type="button" class="btn-hud" id="btn-mercury-stream" title="60fps Mercury Transmit Canlı Akışı Başlat / Durdur">
+                        <svg class="ico"><use href="#i-monitor"/></svg>
+                        <span>Mercury</span>
+                    </button>
+                    <button type="button" class="btn-hud" id="btn-upload-media" title="Önizleme için video veya görsel yükle">
+                        <svg class="ico"><use href="#i-video"/></svg>
+                        <span>Medya</span>
+                    </button>
+                    <input type="file" id="media-file-input" accept="image/*,video/mp4,video/webm,video/quicktime" hidden>
+                    <button type="button" class="btn-hud" id="btn-sync-monitor" title="Program Monitörü karesini telefona eşitle">
+                        <svg class="ico"><use href="#i-refresh"/></svg>
+                        <span>Eşitle</span>
+                    </button>
+                    <button type="button" class="btn-hud accent" id="btn-play-toggle" title="Timeline ve İlk 3sn Viral Hook animasyonunu oynat / duraklat">
+                        <svg class="ico" id="play-toggle-icon"><use href="#i-play"/></svg>
+                        <span id="play-toggle-text">Oynat</span>
+                    </button>
+                </div>
             </div>
 
             <div class="phone-frame-container">
@@ -72,9 +93,13 @@
                     </div>
 
                     <!-- Phone Screen -->
-                    <div class="phone-screen" id="phone-screen" title="Tıklayarak Program Monitörünü Eşitle veya Görsel Sürükle">
-                        <img id="mockup-bg-img" src="assets/alptug_portrait.jpg" alt="Alptuğ Dağ Önizleme Fotoğrafı">
-                        <!-- Live Overlay Canvas: Safe Zones + Social Interface + Guides -->
+                    <div class="phone-screen" id="phone-screen" title="Tıklayarak Oynat/Duraklat veya Medya Sürükle">
+                        <div class="mockup-media-stage" id="mockup-media-stage">
+                            <img id="mockup-bg-img" src="assets/cinematic_still.png" alt="Alptuguide Önizleme Karesi">
+                            <video id="mockup-video" playsinline muted loop hidden></video>
+                            <canvas id="mercury-canvas" class="mercury-canvas" hidden></canvas>
+                        </div>
+                        <!-- Live Overlay Canvas: Safe Zones + Social Interface + Guides + 0-3s Kinetic Hook -->
                         <canvas id="mockup-canvas" data-testid="mockup-canvas"></canvas>
                     </div>
 
@@ -83,26 +108,62 @@
                 </div>
             </div>
 
-            <div class="mockup-footer">
-                <span id="mockup-aspect-label">1080×1920 · 9:16</span>
-                <span id="mockup-platform-label">Instagram Reels</span>
+            <!-- Precision Timeline Scrubber with 0.00s - 3.00s Viral Hook Window Highlight -->
+            <div class="scrubber-wrap">
+                <div class="scrubber-track-container">
+                    <div class="scrubber-hook-zone" title="İlk 3 Saniye Viral Hook Bölgesi (0.00s - 3.00s)"></div>
+                    <input type="range" id="timeline-scrubber" class="timeline-scrubber" min="0" max="15" step="0.02" value="0.65" aria-label="Timeline Zaman Çizelgesi">
+                </div>
+                <div class="mockup-footer">
+                    <div class="timecode-group">
+                        <span id="timecode-label">00:00.6 / 00:15.0</span>
+                        <button type="button" class="btn-loop-pill on" id="btn-loop-hook" title="Yalnızca ilk 3 saniyelik Viral Hook bölgesini döngüde oynat">
+                            <svg class="ico"><use href="#i-repeat"/></svg>
+                            <span>0-3sn Döngü</span>
+                        </button>
+                    </div>
+                    <span id="mockup-status-label">cinematic_still.png · 1080×1920</span>
+                </div>
             </div>
         </section>
 
-        <!-- Right / Bottom Column: Controls & Pro Tools -->
+        <!-- Right / Bottom Column: Controls, Gemini Hook Studio & Pro Tools -->
         <div class="studio-col-controls">
             <!-- Guide Overlay Layer Controls -->
             <section class="card section-card" aria-label="Kılavuz Katmanları">
-                <div class="section-title">Kılavuz Katmanları</div>
+                <div class="section-header-row">
+                    <div class="section-title">Kılavuz Katmanları (1:1 Doğrulanmış)</div>
+                    <button type="button" class="btn-monitor-toggle" id="btn-monitor-guide" title="Premiere Pro / DaVinci Program Monitörü üzerinde render dışı kılavuzları aç/kapat">
+                        <svg class="ico"><use href="#i-monitor"/></svg>
+                        <span id="monitor-guide-text">Monitör Kılavuzu: Kapalı</span>
+                    </button>
+                </div>
+
                 <div class="chips-grid" id="layer-chips">
-                    <button type="button" class="chip" data-key="showSafeZones">Güvenli Alan</button>
+                    <button type="button" class="chip on" data-key="showSafeZones">Güvenli Alan</button>
                     <button type="button" class="chip on" data-key="showMockUi">Sosyal Arayüz</button>
-                    <button type="button" class="chip" data-key="feed45" title="Instagram akışında 4:5 kırpma">Feed 4:5</button>
-                    <button type="button" class="chip" data-key="showSubtitleZone" title="Altyazı ve CTA güvenli sınırı">Altyazı Sınırı</button>
-                    <button type="button" class="chip" data-key="thirds" title="Üçte bir kuralı kılavuz çizgileri">Üçte Bir (3x3)</button>
-                    <button type="button" class="chip" data-key="center" title="Merkez artı işareti">Merkez Artı</button>
-                    <button type="button" class="chip" data-key="grid34" title="Instagram profil ızgarası 3:4 kırpma">Grid 3:4</button>
-                    <button type="button" class="chip" data-key="broadcast" title="Action %90 / Title %80">Broadcast</button>
+                    <button type="button" class="chip on" data-key="showSubtitleZone" title="Altyazı ve CTA güvenli sınırı">Altyazı Sınırı</button>
+                    <button type="button" class="chip" data-key="feed45" title="Instagram akışında 4:5 (1080×1350) kırpma">Feed 4:5</button>
+                    <button type="button" class="chip" data-key="grid34" title="Instagram profil ızgarası 3:4 (1080×1440) kırpma">Grid 3:4</button>
+                    <button type="button" class="chip" data-key="feed11" title="1:1 Kare (1080×1080) kırpma">Kare 1:1</button>
+                    <button type="button" class="chip" data-key="thirds" title="Üçte bir kuralı kılavuz çizgileri ve odak noktaları">Üçte Bir (3x3)</button>
+                    <button type="button" class="chip" data-key="center" title="Merkez artı ve odak halkası">Merkez Artı</button>
+                    <button type="button" class="chip" data-key="broadcast" title="SMPTE RP 2046-2 Action Safe %90 / Title Safe %80">Broadcast</button>
+                </div>
+
+                <!-- Live 1:1 Pixel Spec Verification Strip -->
+                <div class="guide-spec-bar" id="guide-spec-bar" aria-live="polite">
+                    <span>Instagram Reels 1:1</span>
+                    <span>·</span>
+                    <span>Üst 269 px</span>
+                    <span>·</span>
+                    <span>Alt 672 px (440 UI)</span>
+                    <span>·</span>
+                    <span>Sol 65 px</span>
+                    <span>·</span>
+                    <span>Sağ 146 px</span>
+                    <span>·</span>
+                    <strong>Net 869×979 px</strong>
                 </div>
 
                 <div class="slider-row">
@@ -111,6 +172,153 @@
                     <output id="opacity-val" for="input-opacity">100%</output>
                 </div>
             </section>
+
+            <!-- Gemini 0-3s Viral Hook & Kinetic Typography Studio -->
+            <details class="card fold gemini-card" id="fold-gemini-hook" open>
+                <summary>
+                    <div class="summary-title-group">
+                        <svg class="ico accent-ico"><use href="#i-bolt"/></svg>
+                        <span>GEMINI İLK 3SN VİRAL HOOK &amp; TEXT ANİMASYON STÜDYOSU</span>
+                    </div>
+                    <div class="summary-right-group">
+                        <span class="gemini-status-text" id="gemini-status-badge">Gemini 3.8 Flash · Hazır</span>
+                        <svg class="ico chev"><use href="#i-chev"/></svg>
+                    </div>
+                </summary>
+                <div class="fold-body">
+                    <!-- Topic + Multimodal Gemini Action Row -->
+                    <div class="field-group">
+                        <div class="label-row">
+                            <label class="field-label" for="input-hook-topic">Video Konusu, Ham Fikir veya İlk Cümle</label>
+                            <button type="button" class="chip-toggle on" id="btn-toggle-hook-preview" title="0-3sn Kanca ve Kinetik Text katmanını telefon önizlemesinde göster/gizle">
+                                <span>Canlı Hook Katmanı: Açık</span>
+                            </button>
+                        </div>
+                        <div class="row">
+                            <input type="text" id="input-hook-topic" class="field" placeholder="Örn: Premiere Pro'da renk düzenleme yaparken yapılan en büyük hata" value="Dikey videolarda izleyiciyi ilk 3 saniyede ekrana kilitleyen kurgu sırrı">
+                        </div>
+                    </div>
+
+                    <div class="row gemini-btn-row">
+                        <button type="button" class="btn-gemini-gen" id="btn-gemini-generate" title="Gemini 3.8 Flash ile konuya özel 3 farklı viral hook ve text animasyonu üret">
+                            <svg class="ico"><use href="#i-bolt"/></svg>
+                            <span id="gemini-gen-btn-text">Gemini ile 3 Viral Kanca Üret</span>
+                        </button>
+                        <button type="button" class="btn-gemini-vision" id="btn-gemini-vision" title="Aktif telefon karesini ve konuyu Gemini'ye göndererek sahneye özel kanca ve kesme noktaları üret">
+                            <svg class="ico"><use href="#i-eye"/></svg>
+                            <span>Kareyi Analiz Et &amp; Üret</span>
+                        </button>
+                    </div>
+
+                    <!-- Generated Variations Selector Cards -->
+                    <div class="variations-grid" id="gemini-variations-list" role="radiogroup" aria-label="Üretilen Kanca Varyasyonları"></div>
+
+                    <!-- Gemini Visual Analysis & Frame-Accurate Beat Cuts -->
+                    <div class="gemini-insight-strip" id="gemini-insight-strip">
+                        <div class="insight-text" id="gemini-visual-analysis">
+                            İlk 3 saniyede yüksek kontrastlı odak kelimesi ve oküler refleks sarsıntısı kaydırma davranışını %95 oranında durdurur.
+                        </div>
+                        <div class="beat-cuts-row">
+                            <span class="beat-label">Ritim Kesme (Beat Cut) Noktaları:</span>
+                            <div class="beat-buttons" id="gemini-beat-cuts">
+                                <button type="button" class="beat-btn" data-sec="0.00">00:00:00</button>
+                                <button type="button" class="beat-btn" data-sec="0.80">00:00:48</button>
+                                <button type="button" class="beat-btn" data-sec="1.60">00:01:36</button>
+                                <button type="button" class="beat-btn" data-sec="2.40">00:02:24</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Kinetic Typography & Camera Motion Controls -->
+                    <div class="hook-controls-grid">
+                        <div class="field-group">
+                            <label class="field-label" for="select-hook-psych">Psikolojik Tetikleyici</label>
+                            <select id="select-hook-psych" class="field">
+                                <option value="curiosity_gap">Merak Boşluğu (Curiosity Gap)</option>
+                                <option value="contrarian_shock">Ezber Bozan Şok (Contrarian)</option>
+                                <option value="negative_warning">Negatif Uyarı (Bunu Yapma)</option>
+                                <option value="proof_first">Sonuç &amp; Kanıt Önden</option>
+                                <option value="insider_secret">Sektör Sırrı &amp; Kısayol</option>
+                            </select>
+                        </div>
+                        <div class="field-group">
+                            <label class="field-label" for="select-text-anim">Kinetik Text Animasyonu</label>
+                            <select id="select-text-anim" class="field">
+                                <option value="hormozi_pop">Hormozi Pop &amp; Vurgu Kutu</option>
+                                <option value="kinetic_stomp">Kinetik Stomp (3 Darbe)</option>
+                                <option value="glitch_cipher">Glitch RGB &amp; Şifre Çözüm</option>
+                                <option value="glass_spotlight">Liquid Glass &amp; Neon Çizgi</option>
+                                <option value="split_reel_banner">Çift Ton Viral Bant</option>
+                                <option value="typewriter_flash">Flaş Kesme &amp; Daktilo</option>
+                            </select>
+                        </div>
+                        <div class="field-group">
+                            <label class="field-label" for="select-cam-motion">Kamera Hareketi (0.00s - 3.00s)</label>
+                            <select id="select-cam-motion" class="field">
+                                <option value="punch_zoom">Smooth Punch Zoom + Sarsıntı</option>
+                                <option value="jump_snap">Ritmik 3x Jump-Cut Sıçrama</option>
+                                <option value="whip_pan_in">Yatay Whip-Pan Savrulma</option>
+                                <option value="strobe_impact">Strobe Flaş + Gerilim Zum</option>
+                                <option value="handheld_tension">Organik Handheld Gerilim</option>
+                            </select>
+                        </div>
+                        <div class="field-group">
+                            <label class="field-label" for="select-hook-placement">Güvenli Alan İçi Konum</label>
+                            <select id="select-hook-placement" class="field">
+                                <option value="center">Merkez Odak (Önerilen)</option>
+                                <option value="top">Üst Güvenli Sınır Altı</option>
+                                <option value="lower">Alt Altyazı Sınırı Üstü</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Editable Kinetic Text Fields -->
+                    <div class="hook-text-inputs">
+                        <div class="field-group">
+                            <label class="field-label" for="input-hook-text">Ana Kanca Başlığı (0–3sn Kinetik Metin)</label>
+                            <input type="text" id="input-hook-text" class="field" value="VİDEO KURGUSU İÇİN KİMSENİN SÖYLEMEDİĞİ SIR">
+                        </div>
+                        <div class="hook-sub-grid">
+                            <div class="field-group">
+                                <label class="field-label" for="input-hook-highlight">Vurgulanacak Kelime</label>
+                                <input type="text" id="input-hook-highlight" class="field" value="SIR">
+                            </div>
+                            <div class="field-group">
+                                <label class="field-label" for="input-hook-subtext">Alt Kicker Şeridi</label>
+                                <input type="text" id="input-hook-subtext" class="field" value="SONUNA KADAR İZLE · 3 SANİYEDE FARKI GÖR">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Accent Color Swatches & SFX Readout -->
+                    <div class="hook-meta-row">
+                        <div class="color-swatches" role="radiogroup" aria-label="Kanca Vurgu Rengi" id="hook-color-swatches">
+                            <button type="button" class="swatch active" data-color="#fbbf24" aria-label="Altın Sarı" title="Altın Sarı (#fbbf24)"></button>
+                            <button type="button" class="swatch" data-color="#10b981" aria-label="Zümrüt Yeşil" title="Zümrüt Yeşil (#10b981)"></button>
+                            <button type="button" class="swatch" data-color="#f43f5e" aria-label="Kinetik Kırmızı" title="Kinetik Kırmızı (#f43f5e)"></button>
+                            <button type="button" class="swatch" data-color="#38bdf8" aria-label="Siber Mavi" title="Siber Mavi (#38bdf8)"></button>
+                            <button type="button" class="swatch" data-color="#a855f7" aria-label="Neon Mor" title="Neon Mor (#a855f7)"></button>
+                        </div>
+                        <div class="sfx-cue-text" id="hook-sfx-cue">SFX: 00:00 Derin Sub Drop + 00:09 Kinetik Pop</div>
+                    </div>
+
+                    <!-- Primary Apply & Export Actions -->
+                    <div class="hook-actions-row">
+                        <button type="button" class="btn-primary" id="btn-apply-hook" title="İlk 3 saniyeye (00:00 - 03:00) kamera keyframe'lerini ve kinetik kanca katmanını uygula">
+                            <svg class="ico"><use href="#i-bolt"/></svg>
+                            <span>İlk 3sn Viral Hook Uygula</span>
+                        </button>
+                        <button type="button" class="btn-secondary" id="btn-export-hook-png" title="Kinetik kanca grafiğini 1080×1920 şeffaf PNG olarak dışa aktar">
+                            <svg class="ico"><use href="#i-download"/></svg>
+                            <span>Hook PNG</span>
+                        </button>
+                        <button type="button" class="btn-secondary" id="btn-copy-keyframes" title="Premiere Pro / After Effects 0-3sn Keyframe reçetesini panoya kopyala">
+                            <svg class="ico"><use href="#i-copy"/></svg>
+                            <span>Keyframe JSON</span>
+                        </button>
+                    </div>
+                </div>
+            </details>
 
             <!-- Social Interface Settings (Profil & İçerik) -->
             <details class="card fold" id="fold-profile" open>
@@ -151,9 +359,17 @@
             <section class="card section-card" aria-label="Kurgu Araçları">
                 <div class="section-title">Kurgu Araçları</div>
                 <div class="tools-grid">
+                    <button type="button" class="tool-btn" id="btn-quick-hook" title="Aktif kanca stilini tek tıkla ilk 3 saniyeye uygular">
+                        <svg class="ico"><use href="#i-bolt"/></svg>
+                        <span>Hızlı Hook</span>
+                    </button>
                     <button type="button" class="tool-btn" id="btn-reframe" title="Orijinale dokunmadan 9:16 kopya sekans oluşturur">
                         <svg class="ico"><use href="#i-reframe"/></svg>
                         <span>9:16 Kopya</span>
+                    </button>
+                    <button type="button" class="tool-btn" id="btn-markers" title="Timeline'a 3. saniye Hook ve platform süre limiti marker'larını ekler">
+                        <svg class="ico"><use href="#i-marker"/></svg>
+                        <span>Hook &amp; Limit</span>
                     </button>
                     <button type="button" class="tool-btn" id="btn-insert-guides" title="Kılavuzu PNG klibi olarak timeline'a ekler">
                         <svg class="ico"><use href="#i-grid"/></svg>
@@ -177,7 +393,7 @@
     </main>
 
     <footer class="foot">
-        <span>© 2026 Alptuğ Dağ · Alptuguide™ v3.3</span>
+        <span>© 2026 Alptuğ Dağ · Alptuguide™ v3.4 Studio</span>
     </footer>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -187,6 +403,8 @@
     <script src="core/layout.js"></script>
     <script src="core/renderer.js"></script>
     <script src="core/compguides.js"></script>
+    <script src="core/hook_engine.js"></script>
+    <script src="core/mercury_stream.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html>

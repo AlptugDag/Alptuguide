@@ -5,8 +5,9 @@ const SafeZones = require('./safezones.js');
 const Layout = require('./layout.js');
 const CompGuides = require('./compguides.js');
 const Renderer = require('./renderer.js');
+const HookEngine = require('./hook_engine.js');
 
-test('SafeZones specs verify 1:1 platform boundaries at 1080x1920', () => {
+test('SafeZones specs verify 1:1 platform boundaries and exact geometric partition at 1080x1920', () => {
     assert.equal(SafeZones.W, 1080);
     assert.equal(SafeZones.H, 1920);
 
@@ -34,6 +35,24 @@ test('SafeZones specs verify 1:1 platform boundaries at 1080x1920', () => {
     assert.equal(all.y, 288);
     assert.equal(all.w, 823);
     assert.equal(all.h, 960);
+
+    // Verify every platform's danger zones align flush with the safeRect without gaps
+    for (const key of ['reels', 'tiktok', 'shorts', 'all']) {
+        const spec = SafeZones.getSpec(key);
+        const rFull = SafeZones.safeRect(key, 'full');
+        assert.equal(rFull.x + rFull.w, 1080 - spec.safe.right);
+        assert.equal(rFull.y + rFull.h, 1920 - spec.safe.bottom);
+
+        const rightZone = spec.zones.find((z) => z.id === 'right_rail');
+        assert.ok(rightZone, `Missing right rail danger zone for ${key}`);
+        assert.equal(rightZone.x, rFull.x + rFull.w);
+        assert.equal(rightZone.x + rightZone.w, 1080);
+
+        const rightCrop = spec.zones.find((z) => z.id === 'right_crop');
+        assert.ok(rightCrop, `Missing right crop zone for ${key}`);
+        assert.equal(rightCrop.x, rFull.x + rFull.w);
+        assert.equal(rightCrop.x + rightCrop.w, 1080);
+    }
 });
 
 test('SafeZones scales accurately to 4K (2160x3840)', () => {
@@ -50,6 +69,11 @@ test('CompGuides centeredCrop calculates exact aspect masks', () => {
     assert.equal(crop45.h, 1350);
     assert.equal(crop45.x, 0);
     assert.equal(crop45.y, (1920 - 1350) / 2);
+
+    const crop34 = CompGuides.centeredCrop(1080, 1920, 3 / 4);
+    assert.equal(crop34.w, 1080);
+    assert.equal(crop34.h, 1440);
+    assert.equal(crop34.y, (1920 - 1440) / 2);
 
     const crop11 = CompGuides.centeredCrop(1080, 1920, 1);
     assert.equal(crop11.w, 1080);
@@ -75,6 +99,45 @@ test('Layout and Renderer wrapCaption handles single-line, multi-line, and trunc
     assert.equal(longWrap.truncated, true);
     assert.equal(longWrap.lineCount, 2);
     assert.ok(longWrap.lines[1].endsWith('... devamını oku'));
+});
+
+test('HookEngine computes 0-3s camera transforms, safe hook boxes, and keyframe recipes', () => {
+    // Active inside 0.00s - 3.00s window
+    const t0 = HookEngine.computeCameraTransform(0.2, 'punch_zoom', 3.0);
+    assert.equal(t0.active, true);
+    assert.ok(t0.scale > 1.0);
+
+    // Inactive after 3.00s
+    const tAfter = HookEngine.computeCameraTransform(3.5, 'punch_zoom', 3.0);
+    assert.equal(tAfter.active, false);
+    assert.equal(tAfter.scale, 1);
+
+    // Safe hook box stays strictly inside platform safeRect
+    for (const p of ['reels', 'tiktok', 'shorts', 'all']) {
+        const sRect = SafeZones.safeRect(p, 'full');
+        for (const place of ['top', 'center', 'lower']) {
+            const box = HookEngine.computeSafeHookBox(p, place, SafeZones);
+            assert.ok(box.x >= sRect.x);
+            assert.ok(box.x + box.w <= sRect.x + sRect.w);
+            assert.ok(box.centerY >= sRect.y + 150);
+            assert.ok(box.centerY <= sRect.y + sRect.h - 150);
+        }
+    }
+
+    // Fallback variations and keyframe recipe
+    const vars = HookEngine.buildFallbackVariations({
+        topic: 'Premiere Pro renk duzenleme',
+        psychology: 'contrarian_shock',
+        textAnimation: 'hormozi_pop',
+        cameraMotion: 'punch_zoom'
+    });
+    assert.equal(vars.length, 3);
+    assert.ok(vars[0].hookText.length > 5);
+
+    const recipe = HookEngine.generateKeyframesRecipe(vars[0], 60);
+    assert.equal(recipe.windowSeconds, 3.0);
+    assert.equal(recipe.fps, 60);
+    assert.ok(recipe.keyframes.length >= 8);
 });
 
 test('MercuryStream parseShmHeader decodes 96-byte lock-free seqlock header and PrTime ticks', () => {
@@ -108,4 +171,3 @@ test('MercuryStream parseShmHeader decodes 96-byte lock-free seqlock header and 
     assert.equal(parsed.fps, 60.0);
     assert.equal(parsed.isPlaying, true);
 });
-

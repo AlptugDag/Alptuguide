@@ -570,18 +570,29 @@ function setPremiereNativeGuides(enable, configJson) {
             }
         } catch (sErr) {}
 
+        var sx = w / 1080.0;
+        var sy = h / 1920.0;
+        var plat = String(cfg.platform || "reels");
+
+        var specMap = {
+            "reels":  { top: 269, bottom: 672, organic: 440, left: 65, right: 146 },
+            "tiktok": { top: 252, bottom: 620, organic: 490, left: 60, right: 184 },
+            "shorts": { top: 288, bottom: 672, organic: 480, left: 48, right: 192 },
+            "all":    { top: 288, bottom: 672, organic: 490, left: 65, right: 192 }
+        };
+        var sp = specMap[plat] || specMap["reels"];
+
         if (typeof seq.addGuide === "function") {
-            // 1. Güvenli Alanlar
+            // 1. 1:1 Doğrulanmış Güvenli Alanlar (Üst, Tam Alt, Organik Alt, Sol, Sağ)
             if (cfg.showSafeZones !== false) {
-                seq.addGuide(0, Math.round(h * 0.14));  // Üst sistem sınırı (~269px)
-                seq.addGuide(0, Math.round(h * 0.65));  // Altyazı sınırı (~1248px)
-                seq.addGuide(0, Math.round(h * 0.77));  // Organik UI sınırı (~1480px)
-                seq.addGuide(1, Math.round(w * 0.06));  // Sol kenar (~65px)
-                seq.addGuide(1, Math.round(w * 0.865)); // Sağ aksiyon rayı (~934px)
-                seq.addGuide(1, Math.round(w * 0.94));  // Sağ kenar payı (~1015px)
+                seq.addGuide(0, Math.round(sp.top * sy));
+                seq.addGuide(0, Math.round((1920 - sp.bottom) * sy));
+                seq.addGuide(0, Math.round((1920 - sp.organic) * sy));
+                seq.addGuide(1, Math.round(sp.left * sx));
+                seq.addGuide(1, Math.round((1080 - sp.right) * sx));
             }
 
-            // 2. Feed 4:5
+            // 2. Feed 4:5 (1080x1350)
             if (cfg.feed45) {
                 var ch45 = w / (4.0 / 5.0);
                 var y45 = (h - ch45) / 2.0;
@@ -589,7 +600,22 @@ function setPremiereNativeGuides(enable, configJson) {
                 seq.addGuide(0, Math.round(y45 + ch45));
             }
 
-            // 3. Üçte Bir
+            // 3. Profil Grid 3:4 (1080x1440)
+            if (cfg.grid34) {
+                var ch34 = w / (3.0 / 4.0);
+                var y34 = (h - ch34) / 2.0;
+                seq.addGuide(0, Math.round(y34));
+                seq.addGuide(0, Math.round(y34 + ch34));
+            }
+
+            // 4. Kare 1:1 (1080x1080)
+            if (cfg.feed11) {
+                var y11 = (h - w) / 2.0;
+                seq.addGuide(0, Math.round(y11));
+                seq.addGuide(0, Math.round(y11 + w));
+            }
+
+            // 5. Üçte Bir (3x3)
             if (cfg.thirds) {
                 seq.addGuide(1, Math.round(w / 3.0));
                 seq.addGuide(1, Math.round((2.0 * w) / 3.0));
@@ -597,10 +623,22 @@ function setPremiereNativeGuides(enable, configJson) {
                 seq.addGuide(0, Math.round((2.0 * h) / 3.0));
             }
 
-            // 4. Merkez
+            // 6. Merkez Artı
             if (cfg.center) {
                 seq.addGuide(1, Math.round(w / 2.0));
                 seq.addGuide(0, Math.round(h / 2.0));
+            }
+
+            // 7. Broadcast Safe (%90 Action / %80 Title)
+            if (cfg.broadcast) {
+                seq.addGuide(1, Math.round(w * 0.05));
+                seq.addGuide(1, Math.round(w * 0.95));
+                seq.addGuide(0, Math.round(h * 0.05));
+                seq.addGuide(0, Math.round(h * 0.95));
+                seq.addGuide(1, Math.round(w * 0.10));
+                seq.addGuide(1, Math.round(w * 0.90));
+                seq.addGuide(0, Math.round(h * 0.10));
+                seq.addGuide(0, Math.round(h * 0.90));
             }
             return "OK:NATIVE_GUIDES";
         }
@@ -620,8 +658,11 @@ function applyViralRetentionHook(optionsJson) {
         var opt = {};
         try { opt = typeof optionsJson === "string" ? JSON.parse(optionsJson) : (optionsJson || {}); } catch (e) {}
 
-        var style = opt.style || "punch_zoom";
-        var hookTitle = opt.title || (style === "hormozi_title" ? "DİKKATLE İZLEYİN!" : "BUNU BİLMİYORDUNUZ!");
+        var style = opt.cameraMotion || opt.style || "punch_zoom";
+        var textAnim = opt.textAnimation || "hormozi_pop";
+        var hookTitle = opt.hookText || opt.title || "BUNU BİLMİYORDUNUZ!";
+        var subText = opt.subText || "";
+        var sfxCue = opt.sfxCue || "00:00 Sub Drop + 00:12 Whoosh";
         var hookDurationSec = 3.0; // İlk 3 saniye evrensel viral kuralı
 
         // 1. Video kanalı 1'deki ilk klibi bul
@@ -673,38 +714,35 @@ function applyViralRetentionHook(optionsJson) {
                 var t0 = new Time(); t0.seconds = 0.0;
 
                 if (style === "jump_snap") {
-                    // Ritmik Sıçrama (Jump Cut Snap): 0s=%100 -> 1s=%108 -> 2s=%118
-                    var t1 = new Time(); t1.seconds = 1.0;
-                    var t2 = new Time(); t2.seconds = 2.0;
-                    scaleProp.addKey(t0); scaleProp.setValueAtKey(t0, 100.0, true);
-                    scaleProp.addKey(t1); scaleProp.setValueAtKey(t1, 108.0, true);
-                    scaleProp.addKey(t2); scaleProp.setValueAtKey(t2, 118.0, true);
+                    var t1 = new Time(); t1.seconds = 0.85;
+                    var t2 = new Time(); t2.seconds = 1.75;
+                    scaleProp.addKey(t0); scaleProp.setValueAtKey(t0, 104.0, true);
+                    scaleProp.addKey(t1); scaleProp.setValueAtKey(t1, 112.0, true);
+                    scaleProp.addKey(t2); scaleProp.setValueAtKey(t2, 121.0, true);
                     motionApplied = true;
-                } else if (style === "strobe_flash") {
-                    // Flaş Patlaması: 0. karede anında %114, 2.5s'ye kadar yavaş süzülme
-                    var tFlashEnd = new Time(); tFlashEnd.seconds = Math.min(2.5, clipEndSec - 0.2);
+                } else if (style === "strobe_impact" || style === "strobe_flash") {
+                    var tFlashEnd = new Time(); tFlashEnd.seconds = Math.min(2.6, clipEndSec - 0.2);
                     scaleProp.addKey(t0); scaleProp.setValueAtKey(t0, 114.0, true);
-                    scaleProp.addKey(tFlashEnd); scaleProp.setValueAtKey(tFlashEnd, 120.0, true);
+                    scaleProp.addKey(tFlashEnd); scaleProp.setValueAtKey(tFlashEnd, 122.0, true);
                     motionApplied = true;
-                } else if (style === "glitch_shock") {
-                    // Glitch Darbesi: 0. saniyede %105, 0.4s'de %116, 2.4s'de %120
-                    var tg1 = new Time(); tg1.seconds = 0.4;
-                    var tg2 = new Time(); tg2.seconds = Math.min(2.4, clipEndSec - 0.2);
-                    scaleProp.addKey(t0); scaleProp.setValueAtKey(t0, 105.0, true);
-                    scaleProp.addKey(tg1); scaleProp.setValueAtKey(tg1, 116.0, true);
-                    scaleProp.addKey(tg2); scaleProp.setValueAtKey(tg2, 120.0, true);
+                } else if (style === "whip_pan_in" || style === "glitch_shock") {
+                    var tg1 = new Time(); tg1.seconds = 0.28;
+                    var tg2 = new Time(); tg2.seconds = Math.min(2.6, clipEndSec - 0.2);
+                    scaleProp.addKey(t0); scaleProp.setValueAtKey(t0, 106.0, true);
+                    scaleProp.addKey(tg1); scaleProp.setValueAtKey(tg1, 114.0, true);
+                    scaleProp.addKey(tg2); scaleProp.setValueAtKey(tg2, 118.0, true);
                     motionApplied = true;
                 } else {
-                    // Standart / Hormozi / AI: Smooth Punch Zoom (%100 -> %120)
+                    // punch_zoom / handheld_tension
                     var tPunch = new Time(); tPunch.seconds = Math.min(2.4, clipEndSec - 0.2);
                     scaleProp.addKey(t0); scaleProp.setValueAtKey(t0, 100.0, true);
-                    scaleProp.addKey(tPunch); scaleProp.setValueAtKey(tPunch, 120.0, true);
+                    scaleProp.addKey(tPunch); scaleProp.setValueAtKey(tPunch, 122.0, true);
                     motionApplied = true;
                 }
             } catch (sErr) {}
         }
 
-        // Camera Shake / Sarsıntı keyframe'leri
+        // Camera Shake / Whip-Pan keyframe'leri
         if (posProp) {
             try {
                 posProp.setTimeVarying(true);
@@ -713,36 +751,39 @@ function applyViralRetentionHook(optionsJson) {
                 var baseY = basePos && basePos.length > 1 ? basePos[1] : 0.5;
 
                 var shakeOffsets = [];
-                if (style === "glitch_shock") {
-                    // Yüksek frekanslı yatay-dikey RGB ayrışma sarsıntısı
+                if (style === "whip_pan_in") {
                     shakeOffsets = [
-                        [0.00,  24, -14],
-                        [0.05, -20,  18],
-                        [0.10,  16, -10],
-                        [0.15, -12,   8],
-                        [0.22,   8,  -5],
-                        [0.32,  -4,   2],
-                        [0.45,   0,   0]
+                        [0.00, -140,  0],
+                        [0.14,  18,  -4],
+                        [0.24,  -6,   2],
+                        [0.32,   0,   0]
                     ];
                 } else if (style === "jump_snap") {
-                    // Atlama anlarında mikro sarsıntı
                     shakeOffsets = [
-                        [0.00,  8, -6],
-                        [0.10,  0,  0],
-                        [1.00, 10, -8],
-                        [1.10,  0,  0],
-                        [2.00, 12, -8],
-                        [2.10,  0,  0]
+                        [0.00,   9, -7],
+                        [0.10,   0,  0],
+                        [0.85, -11,  8],
+                        [0.95,   0,  0],
+                        [1.75,  13, -9],
+                        [1.87,   0,  0]
+                    ];
+                } else if (style === "handheld_tension") {
+                    shakeOffsets = [
+                        [0.00,  6, -5],
+                        [0.60, -8,  6],
+                        [1.20,  7, -4],
+                        [1.80, -6,  5],
+                        [2.40,  5, -3],
+                        [3.00,  0,  0]
                     ];
                 } else {
-                    // Evrensel sönümlü sinüs titreşimi (ocular reflex)
                     shakeOffsets = [
-                        [0.00,  15, -10],
+                        [0.00,  16, -11],
                         [0.08, -13,   8],
                         [0.16,   9,  -6],
                         [0.28,  -5,   4],
                         [0.40,   2,  -2],
-                        [0.50,   0,   0]
+                        [0.48,   0,   0]
                     ];
                 }
 
@@ -758,8 +799,8 @@ function applyViralRetentionHook(optionsJson) {
             } catch (pErr) {}
         }
 
-        // Flaş Patlaması (Strobe Flash stili için 4 karelik pozlama/opaklık kırpışması)
-        if (style === "strobe_flash" && opacityProp) {
+        // Flaş Patlaması (Strobe Impact stili için 4 karelik pozlama/opaklık kırpışması)
+        if ((style === "strobe_impact" || style === "strobe_flash") && opacityProp) {
             try {
                 opacityProp.setTimeVarying(true);
                 var tf0 = new Time(); tf0.seconds = 0.0;
@@ -773,38 +814,28 @@ function applyViralRetentionHook(optionsJson) {
             } catch (fErr) {}
         }
 
-        // 3. Timeline Marker Ekle (00:00:00:00)
+        // 3. Timeline Marker Ekle (00:00:00:00 -> 00:00:03:00)
         try {
             var markers = seq.markers;
             if (markers) {
                 var mkr = markers.createMarker(0.0);
                 if (mkr) {
-                    mkr.name = "[" + hookTitle + "]";
-                    mkr.comments = "Viral Hook Stili: " + style.toUpperCase() + " (İlk 3 Saniye Retention Garantisi)";
+                    mkr.name = "GEMINI HOOK · [" + hookTitle + "]";
+                    mkr.comments = "Text Animasyon: " + textAnim + " | Kamera: " + style + (subText ? (" | Alt Başlık: " + subText) : "") + " | SFX: " + sfxCue;
                     mkr.end = new Time(); mkr.end.seconds = hookDurationSec;
                 }
             }
         } catch (mErr) {}
 
-        var styleLabels = {
-            "punch_zoom": "Smooth Punch Zoom & Sarsıntı",
-            "hormozi_title": "Hormozi Pop Başlık & Kanca",
-            "strobe_flash": "Flaş Patlaması & Hızlı Zum",
-            "glitch_shock": "Glitch & Kinetik Darbe",
-            "jump_snap": "Ritmik Sıçrama (Jump-Snap)",
-            "ai_smart": "Yapay Zeka Destekli Otonom Kanca"
-        };
-        var currentLabel = styleLabels[style] || style;
-
         return _json({
             ok: true,
             sequence: seq.name,
             style: style,
-            style_label: currentLabel,
+            textAnimation: textAnim,
             motion_applied: motionApplied,
             hook_duration: hookDurationSec,
             hook_title: hookTitle,
-            message: "Timeline'ın ilk 3 saniyesine (00:00 - 03:00) " + currentLabel + " uygulandı."
+            message: "Timeline'ın ilk 3 saniyesine (00:00 - 03:00) Gemini Viral Hook uygulandı."
         });
     } catch (e) {
         return _json({ ok: false, error: e.toString() });

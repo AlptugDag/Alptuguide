@@ -9,9 +9,9 @@
     'use strict';
 
     var CROPS = {
-        feed45: { ratio: 4 / 5, label: 'FEED 4:5', color: '#f472b6' },
-        grid34: { ratio: 3 / 4, label: 'PROFİL GRID 3:4', color: '#fbbf24' },
-        square: { ratio: 1, label: '1:1', color: '#a78bfa' }
+        feed45: { ratio: 4 / 5, label: 'FEED 4:5 (1080×1350)', color: '#f472b6', align: 'right' },
+        grid34: { ratio: 3 / 4, label: 'PROFİL GRİD 3:4 (1080×1440)', color: '#fbbf24', align: 'left' },
+        square: { ratio: 1, label: 'KARE 1:1 (1080×1080)', color: '#a78bfa', align: 'right' }
     };
 
     function centeredCrop(w, h, ratio) {
@@ -28,30 +28,34 @@
         ctx.stroke();
     }
 
-    function tag(ctx, text, x, y, color, s) {
-        ctx.font = '700 ' + Math.round(17 * s) + 'px Inter, -apple-system, sans-serif';
-        var pad = 8 * s, tw = ctx.measureText(text).width + pad * 2, th = 26 * s;
-        ctx.fillStyle = 'rgba(0,0,0,0.62)';
-        ctx.fillRect(x, y, tw, th);
-        ctx.fillStyle = color;
-        ctx.textBaseline = 'middle';
-        ctx.textAlign = 'left';
-        ctx.fillText(text, x + pad, y + th / 2 + 1);
+    function roundRect(ctx, x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + w, y, x + w, y + h, r);
+        ctx.arcTo(x + w, y + h, x, y + h, r);
+        ctx.arcTo(x, y + h, x, y, r);
+        ctx.arcTo(x, y, x + w, y, r);
+        ctx.closePath();
     }
 
-    function tagRight(ctx, text, rightX, y, color, s) {
-        ctx.font = '700 ' + Math.round(18 * s) + 'px Montserrat, Inter, -apple-system, sans-serif';
-        var pad = 10 * s, tw = ctx.measureText(text).width + pad * 2, th = 28 * s;
-        var x = rightX - tw;
-        ctx.fillStyle = 'rgba(8, 10, 15, 0.82)';
-        ctx.fillRect(x, y, tw, th);
+    function drawPillTag(ctx, text, x, y, color, s, alignRight) {
+        ctx.save();
+        ctx.font = '700 ' + Math.round(16 * s) + 'px Montserrat, Inter, -apple-system, sans-serif';
+        var padX = 10 * s;
+        var tw = ctx.measureText(text).width + padX * 2;
+        var th = 26 * s;
+        var bx = alignRight ? (x - tw) : x;
+        roundRect(ctx, bx, y, tw, th, 6 * s);
+        ctx.fillStyle = 'rgba(8, 10, 16, 0.88)';
+        ctx.fill();
         ctx.strokeStyle = color;
         ctx.lineWidth = Math.max(1, 1.5 * s);
-        ctx.strokeRect(x, y, tw, th);
+        ctx.stroke();
         ctx.fillStyle = color;
         ctx.textBaseline = 'middle';
         ctx.textAlign = 'left';
-        ctx.fillText(text, x + pad, y + th / 2 + 1);
+        ctx.fillText(text, bx + padX, y + th / 2 + 1);
+        ctx.restore();
     }
 
     function draw(ctx, w, h, opts) {
@@ -61,50 +65,91 @@
         ctx.globalAlpha = typeof opts.opacity === 'number' ? opts.opacity : 1;
 
         if (opts.thirds) {
-            ctx.strokeStyle = 'rgba(255,255,255,0.55)';
-            ctx.lineWidth = Math.max(1, 2 * s);
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.62)';
+            ctx.lineWidth = Math.max(1.5, 2 * s);
             ctx.setLineDash([10 * s, 8 * s]);
             line(ctx, w / 3, 0, w / 3, h);
             line(ctx, 2 * w / 3, 0, 2 * w / 3, h);
             line(ctx, 0, h / 3, w, h / 3);
             line(ctx, 0, 2 * h / 3, w, 2 * h / 3);
             ctx.setLineDash([]);
+
+            // Power-point intersection rings (Golden / Rule of Thirds focal points)
+            var pts = [
+                [w / 3, h / 3],
+                [2 * w / 3, h / 3],
+                [w / 3, 2 * h / 3],
+                [2 * w / 3, 2 * h / 3]
+            ];
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+            for (var i = 0; i < pts.length; i++) {
+                ctx.beginPath();
+                ctx.arc(pts[i][0], pts[i][1], 5 * s, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
         }
 
         if (opts.center) {
-            var c = 34 * s;
-            ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-            ctx.lineWidth = Math.max(1, 2.5 * s);
-            line(ctx, w / 2 - c, h / 2, w / 2 + c, h / 2);
-            line(ctx, w / 2, h / 2 - c, w / 2, h / 2 + c);
+            ctx.save();
+            var c = 38 * s;
+            var gap = 8 * s;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.92)';
+            ctx.lineWidth = Math.max(1.5, 2.5 * s);
+            line(ctx, w / 2 - c, h / 2, w / 2 - gap, h / 2);
+            line(ctx, w / 2 + gap, h / 2, w / 2 + c, h / 2);
+            line(ctx, w / 2, h / 2 - c, w / 2, h / 2 - gap);
+            line(ctx, w / 2, h / 2 + gap, w / 2, h / 2 + c);
+            ctx.beginPath();
+            ctx.arc(w / 2, h / 2, 16 * s, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+            ctx.lineWidth = Math.max(1, 1.5 * s);
+            ctx.stroke();
+            ctx.restore();
         }
 
         if (opts.broadcast) {
-            // Action safe 90 % / title safe 80 %
-            ctx.lineWidth = Math.max(1, 2 * s);
-            ctx.strokeStyle = 'rgba(56,189,248,0.75)';
-            ctx.strokeRect(w * 0.05, h * 0.05, w * 0.9, h * 0.9);
-            ctx.strokeStyle = 'rgba(56,189,248,0.45)';
-            ctx.setLineDash([6 * s, 6 * s]);
-            ctx.strokeRect(w * 0.1, h * 0.1, w * 0.8, h * 0.8);
+            // SMPTE RP 2046-2 Broadcast Safe: Action Safe 90% (5% inset) & Title Safe 80% (10% inset)
+            ctx.save();
+            var ax = Math.round(w * 0.05), ay = Math.round(h * 0.05), aw = Math.round(w * 0.9), ah = Math.round(h * 0.9);
+            var tx = Math.round(w * 0.10), ty = Math.round(h * 0.10), tw = Math.round(w * 0.8), th = Math.round(h * 0.8);
+
+            ctx.lineWidth = Math.max(1.5, 2.2 * s);
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.85)';
+            ctx.strokeRect(ax, ay, aw, ah);
+            drawPillTag(ctx, 'ACTION SAFE %90', ax + 10 * s, ay + 10 * s, '#38bdf8', s, false);
+
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.60)';
+            ctx.setLineDash([8 * s, 6 * s]);
+            ctx.strokeRect(tx, ty, tw, th);
             ctx.setLineDash([]);
+            drawPillTag(ctx, 'TITLE SAFE %80', tx + 10 * s, ty + 10 * s, '#7dd3fc', s, false);
+            ctx.restore();
         }
 
         ['feed45', 'grid34', 'square'].forEach(function (key) {
             if (!opts[key]) return;
             var cfg = CROPS[key];
             var r = centeredCrop(w, h, cfg.ratio);
-            // Dim what gets cropped away, then outline the visible window
-            ctx.fillStyle = 'rgba(0,0,0,0.28)';
+            ctx.save();
+            // Dim what gets cropped away in profile grid / Instagram feed
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.26)';
             ctx.fillRect(0, 0, w, r.y);
             ctx.fillRect(0, r.y + r.h, w, h - r.y - r.h);
+
             ctx.strokeStyle = cfg.color;
-            ctx.lineWidth = Math.max(1, 3 * s);
+            ctx.lineWidth = Math.max(1.5, 3 * s);
             ctx.setLineDash([16 * s, 10 * s]);
-            ctx.strokeRect(r.x + 1, r.y, r.w - 2, r.h);
+            ctx.strokeRect(r.x + 1.5, r.y, r.w - 3, r.h);
             ctx.setLineDash([]);
-            var labelY = Math.max(12 * s, r.y - 34 * s);
-            tagRight(ctx, cfg.label, r.x + r.w - 16 * s, labelY, cfg.color, s);
+
+            // Place crop badge cleanly inside top/bottom corner without colliding with centered Safe Zone header
+            var isRight = cfg.align === 'right';
+            var anchorX = isRight ? (r.x + r.w - 16 * s) : (r.x + 16 * s);
+            var labelY = Math.max(12 * s, r.y - 32 * s);
+            drawPillTag(ctx, cfg.label, anchorX, labelY, cfg.color, s, isRight);
+            ctx.restore();
         });
 
         ctx.restore();

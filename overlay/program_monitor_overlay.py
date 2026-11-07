@@ -290,15 +290,22 @@ def run_pyqt_overlay(studio_url: str = "http://127.0.0.1:3000"):
                 painter.drawImage(QRectF(0, 0, w, h), self.overlay_image)
                 return
 
-            # Vector Safe-Zone rendering (1080x1920 reference)
+            # Vector Safe-Zone rendering (1080x1920 1:1 verified reference)
             sx = w / 1080.0
             sy = h / 1920.0
             plat = self.state.get("platform", "reels")
 
-            top_inset = 210.0 * sy
-            bot_inset = (480.0 if plat in ("tiktok", "all") else (440.0 if plat == "shorts" else 450.0)) * sy
-            left_inset = (48.0 if plat in ("shorts", "all") else 42.0) * sx
-            right_inset = (168.0 if plat in ("tiktok", "all") else 162.0) * sx
+            specs = {
+                "reels": (269.0, 672.0, 65.0, 146.0),
+                "tiktok": (252.0, 620.0, 60.0, 184.0),
+                "shorts": (288.0, 672.0, 48.0, 192.0),
+                "all": (288.0, 672.0, 65.0, 192.0),
+            }
+            sp_top, sp_bot, sp_left, sp_right = specs.get(plat, specs["reels"])
+            top_inset = sp_top * sy
+            bot_inset = sp_bot * sy
+            left_inset = sp_left * sx
+            right_inset = sp_right * sx
 
             safe_rect = QRectF(
                 left_inset,
